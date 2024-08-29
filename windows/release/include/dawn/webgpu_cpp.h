@@ -24,9 +24,12 @@
 // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
 #ifdef __EMSCRIPTEN__
-#error "This header is for native Dawn. Use Dawn's or Emscripten's Emscripten bindings instead."
+#error "Do not include this header. Emscripten already provides headers needed for WebGPU."
 #endif
+
 #ifndef WEBGPU_CPP_H_
 #define WEBGPU_CPP_H_
 
@@ -35,7 +38,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <functional>
+#include <string_view>
+#include <type_traits>
+#include <utility>
 
 #include "webgpu/webgpu.h"
 #include "webgpu/webgpu_cpp_chained_struct.h"
@@ -359,6 +366,8 @@ enum class FeatureName : uint32_t {
     YCbCrVulkanSamplers = WGPUFeatureName_YCbCrVulkanSamplers,
     ShaderModuleCompilationOptions = WGPUFeatureName_ShaderModuleCompilationOptions,
     DawnLoadResolveTexture = WGPUFeatureName_DawnLoadResolveTexture,
+    DawnPartialLoadResolveTexture = WGPUFeatureName_DawnPartialLoadResolveTexture,
+    MultiDrawIndirect = WGPUFeatureName_MultiDrawIndirect,
 };
 static_assert(sizeof(FeatureName) == sizeof(WGPUFeatureName), "sizeof mismatch for FeatureName");
 static_assert(alignof(FeatureName) == alignof(WGPUFeatureName), "alignof mismatch for FeatureName");
@@ -499,6 +508,7 @@ enum class SType : uint32_t {
     ShaderModuleWGSLDescriptor = WGPUSType_ShaderModuleWGSLDescriptor,
     PrimitiveDepthClipControl = WGPUSType_PrimitiveDepthClipControl,
     RenderPassDescriptorMaxDrawCount = WGPUSType_RenderPassDescriptorMaxDrawCount,
+    RenderPassDescriptorExpandResolveRect = WGPUSType_RenderPassDescriptorExpandResolveRect,
     TextureBindingViewDimensionDescriptor = WGPUSType_TextureBindingViewDimensionDescriptor,
     SurfaceDescriptorFromCanvasHTMLSelector = WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
     SurfaceDescriptorFromMetalLayer = WGPUSType_SurfaceDescriptorFromMetalLayer,
@@ -511,7 +521,6 @@ enum class SType : uint32_t {
     ExternalTextureBindingEntry = WGPUSType_ExternalTextureBindingEntry,
     ExternalTextureBindingLayout = WGPUSType_ExternalTextureBindingLayout,
     SurfaceDescriptorFromWindowsSwapChainPanel = WGPUSType_SurfaceDescriptorFromWindowsSwapChainPanel,
-    DepthStencilStateDepthWriteDefinedDawn = WGPUSType_DepthStencilStateDepthWriteDefinedDawn,
     DawnTextureInternalUsageDescriptor = WGPUSType_DawnTextureInternalUsageDescriptor,
     DawnEncoderInternalUsageDescriptor = WGPUSType_DawnEncoderInternalUsageDescriptor,
     DawnInstanceDescriptor = WGPUSType_DawnInstanceDescriptor,
@@ -923,6 +932,10 @@ static_assert(sizeof(TextureUsage) == sizeof(WGPUTextureUsage), "sizeof mismatch
 static_assert(alignof(TextureUsage) == alignof(WGPUTextureUsage), "alignof mismatch for TextureUsage");
 
 
+// TODO(crbug.com/42241461): Update these to not be using the C callback types, and instead be
+// defined using C++ types instead. Note that when we remove these, the C++ callback info types
+// should also all be removed as they will no longer be necessary given the C++ templated
+// functions calls and setter utilities.
 using BufferMapCallback = WGPUBufferMapCallback;
 using Callback = WGPUCallback;
 using CompilationInfoCallback = WGPUCompilationInfoCallback;
@@ -956,6 +969,63 @@ class Bool {
     // Default to false.
     WGPUBool mValue = static_cast<WGPUBool>(false);
 };
+
+// Special class for optional booleans in order to allow conversions.
+class OptionalBool {
+  public:
+    constexpr OptionalBool() = default;
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    constexpr OptionalBool(bool value) : mValue(static_cast<WGPUOptionalBool>(value)) {}
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    constexpr OptionalBool(std::optional<bool> value) :
+        mValue(value ? static_cast<WGPUOptionalBool>(*value) : WGPUOptionalBool_Undefined) {}
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    constexpr OptionalBool(WGPUOptionalBool value): mValue(value) {}
+
+    // Define the values that are equivalent to the enums.
+    static const OptionalBool False;
+    static const OptionalBool True;
+    static const OptionalBool Undefined;
+
+    // Assignment operators.
+    OptionalBool& operator=(const bool& value) {
+        mValue = static_cast<WGPUOptionalBool>(value);
+        return *this;
+    }
+    OptionalBool& operator=(const std::optional<bool>& value) {
+        mValue = value ? static_cast<WGPUOptionalBool>(*value) : WGPUOptionalBool_Undefined;
+        return *this;
+    }
+    OptionalBool& operator=(const WGPUOptionalBool& value) {
+        mValue = value;
+        return *this;
+    }
+
+    // Conversion functions.
+    operator WGPUOptionalBool() const { return mValue; }
+    operator std::optional<bool>() const {
+        if (mValue == WGPUOptionalBool_Undefined) {
+            return std::nullopt;
+        }
+        return static_cast<bool>(mValue);
+    }
+
+    // Comparison functions.
+    bool operator==(WGPUOptionalBool rhs) const {
+        return mValue == rhs;
+    }
+    bool operator!=(WGPUOptionalBool rhs) const {
+        return mValue != rhs;
+    }
+
+  private:
+    friend struct std::hash<OptionalBool>;
+    // Default to undefined.
+    WGPUOptionalBool mValue = WGPUOptionalBool_Undefined;
+};
+inline const OptionalBool OptionalBool::False = OptionalBool(WGPUOptionalBool_False);
+inline const OptionalBool OptionalBool::True = OptionalBool(WGPUOptionalBool_True);
+inline const OptionalBool OptionalBool::Undefined = OptionalBool(WGPUOptionalBool_Undefined);
 
 // Helper class to wrap Status which allows implicit conversion to bool.
 // Used while callers switch to checking the Status enum instead of booleans.
@@ -1116,7 +1186,6 @@ struct DawnShaderModuleSPIRVOptionsDescriptor;
 struct DawnTextureInternalUsageDescriptor;
 struct DawnTogglesDescriptor;
 struct DawnWireWGSLControl;
-struct DepthStencilStateDepthWriteDefinedDawn;
 struct DeviceLostCallbackInfo;
 struct DrmFormatProperties;
 struct Extent2D;
@@ -1129,6 +1198,7 @@ struct InstanceFeatures;
 struct Limits;
 struct MemoryHeapInfo;
 struct MultisampleState;
+struct NullableStringView;
 struct Origin2D;
 struct Origin3D;
 struct PipelineLayoutDescriptor;
@@ -1142,6 +1212,7 @@ struct QueueWorkDoneCallbackInfo;
 struct RenderBundleDescriptor;
 struct RenderBundleEncoderDescriptor;
 struct RenderPassDepthStencilAttachment;
+struct RenderPassDescriptorExpandResolveRect;
 struct RenderPassDescriptorMaxDrawCount;
 struct RenderPassTimestampWrites;
 struct RequestAdapterCallbackInfo;
@@ -1186,6 +1257,7 @@ struct SharedTextureMemoryZirconHandleDescriptor;
 struct StaticSamplerBindingLayout;
 struct StencilFaceState;
 struct StorageTextureBindingLayout;
+struct StringView;
 struct SurfaceCapabilities;
 struct SurfaceConfiguration;
 struct SurfaceDescriptor;
@@ -1283,6 +1355,7 @@ class BindGroup : public ObjectBase<BindGroup, WGPUBindGroup> {
     using ObjectBase::operator=;
 
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1297,6 +1370,7 @@ class BindGroupLayout : public ObjectBase<BindGroupLayout, WGPUBindGroupLayout> 
     using ObjectBase::operator=;
 
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1327,6 +1401,7 @@ class Buffer : public ObjectBase<Buffer, WGPUBuffer> {
     Future MapAsync(MapMode mode, size_t offset, size_t size, CallbackMode callbackMode, L callback) const;
     inline Future MapAsync(MapMode mode, size_t offset, size_t size, BufferMapCallbackInfo callbackInfo) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void Unmap() const;
 
 
@@ -1342,6 +1417,7 @@ class CommandBuffer : public ObjectBase<CommandBuffer, WGPUCommandBuffer> {
     using ObjectBase::operator=;
 
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1364,11 +1440,15 @@ class CommandEncoder : public ObjectBase<CommandEncoder, WGPUCommandEncoder> {
     inline void CopyTextureToTexture(ImageCopyTexture const * source, ImageCopyTexture const * destination, Extent3D const * copySize) const;
     inline CommandBuffer Finish(CommandBufferDescriptor const * descriptor = nullptr) const;
     inline void InjectValidationError(char const * message) const;
+    inline void InjectValidationError(StringView message) const;
     inline void InsertDebugMarker(char const * markerLabel) const;
+    inline void InsertDebugMarker(StringView markerLabel) const;
     inline void PopDebugGroup() const;
     inline void PushDebugGroup(char const * groupLabel) const;
+    inline void PushDebugGroup(StringView groupLabel) const;
     inline void ResolveQuerySet(QuerySet const& querySet, uint32_t firstQuery, uint32_t queryCount, Buffer const& destination, uint64_t destinationOffset) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void WriteBuffer(Buffer const& buffer, uint64_t bufferOffset, uint8_t const * data, uint64_t size) const;
     inline void WriteTimestamp(QuerySet const& querySet, uint32_t queryIndex) const;
 
@@ -1388,10 +1468,13 @@ class ComputePassEncoder : public ObjectBase<ComputePassEncoder, WGPUComputePass
     inline void DispatchWorkgroupsIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset) const;
     inline void End() const;
     inline void InsertDebugMarker(char const * markerLabel) const;
+    inline void InsertDebugMarker(StringView markerLabel) const;
     inline void PopDebugGroup() const;
     inline void PushDebugGroup(char const * groupLabel) const;
+    inline void PushDebugGroup(StringView groupLabel) const;
     inline void SetBindGroup(uint32_t groupIndex, BindGroup const& group, size_t dynamicOffsetCount = 0, uint32_t const * dynamicOffsets = nullptr) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void SetPipeline(ComputePipeline const& pipeline) const;
     inline void WriteTimestamp(QuerySet const& querySet, uint32_t queryIndex) const;
 
@@ -1409,6 +1492,7 @@ class ComputePipeline : public ObjectBase<ComputePipeline, WGPUComputePipeline> 
 
     inline BindGroupLayout GetBindGroupLayout(uint32_t groupIndex) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1440,6 +1524,7 @@ class Device : public ObjectBase<Device, WGPUDevice> {
     inline Buffer CreateErrorBuffer(BufferDescriptor const * descriptor) const;
     inline ExternalTexture CreateErrorExternalTexture() const;
     inline ShaderModule CreateErrorShaderModule(ShaderModuleDescriptor const * descriptor, char const * errorMessage) const;
+    inline ShaderModule CreateErrorShaderModule(ShaderModuleDescriptor const * descriptor, StringView errorMessage) const;
     inline Texture CreateErrorTexture(TextureDescriptor const * descriptor) const;
     inline ExternalTexture CreateExternalTexture(ExternalTextureDescriptor const * externalTextureDescriptor) const;
     inline PipelineLayout CreatePipelineLayout(PipelineLayoutDescriptor const * descriptor) const;
@@ -1463,6 +1548,7 @@ class Device : public ObjectBase<Device, WGPUDevice> {
     inline void Destroy() const;
     inline size_t EnumerateFeatures(FeatureName * features) const;
     inline void ForceLoss(DeviceLostReason type, char const * message) const;
+    inline void ForceLoss(DeviceLostReason type, StringView message) const;
     inline ConvertibleStatus GetAHardwareBufferProperties(void * handle, AHardwareBufferProperties * properties) const;
     inline Adapter GetAdapter() const;
     inline ConvertibleStatus GetLimits(SupportedLimits * limits) const;
@@ -1473,6 +1559,7 @@ class Device : public ObjectBase<Device, WGPUDevice> {
     inline SharedFence ImportSharedFence(SharedFenceDescriptor const * descriptor) const;
     inline SharedTextureMemory ImportSharedTextureMemory(SharedTextureMemoryDescriptor const * descriptor) const;
     inline void InjectError(ErrorType type, char const * message) const;
+    inline void InjectError(ErrorType type, StringView message) const;
     inline void PopErrorScope(ErrorCallback oldCallback, void * userdata) const;
     template <typename F, typename T,
               typename Cb = void (PopErrorScopeStatus status, ErrorType type, char const * message, T userdata),
@@ -1486,6 +1573,7 @@ class Device : public ObjectBase<Device, WGPUDevice> {
     inline void PushErrorScope(ErrorFilter filter) const;
     inline void SetDeviceLostCallback(DeviceLostCallback callback, void * userdata) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void SetLoggingCallback(LoggingCallback callback, void * userdata) const;
     inline void SetUncapturedErrorCallback(ErrorCallback callback, void * userdata) const;
     inline void Tick() const;
@@ -1507,6 +1595,7 @@ class ExternalTexture : public ObjectBase<ExternalTexture, WGPUExternalTexture> 
     inline void Expire() const;
     inline void Refresh() const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1550,6 +1639,7 @@ class PipelineLayout : public ObjectBase<PipelineLayout, WGPUPipelineLayout> {
     using ObjectBase::operator=;
 
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1567,6 +1657,7 @@ class QuerySet : public ObjectBase<QuerySet, WGPUQuerySet> {
     inline uint32_t GetCount() const;
     inline QueryType GetType() const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1593,6 +1684,7 @@ class Queue : public ObjectBase<Queue, WGPUQueue> {
     Future OnSubmittedWorkDone(CallbackMode callbackMode, L callback) const;
     inline Future OnSubmittedWorkDone(QueueWorkDoneCallbackInfo callbackInfo) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void Submit(size_t commandCount, CommandBuffer const * commands) const;
     inline void WriteBuffer(Buffer const& buffer, uint64_t bufferOffset, void const * data, size_t size) const;
     inline void WriteTexture(ImageCopyTexture const * destination, void const * data, size_t dataSize, TextureDataLayout const * dataLayout, Extent3D const * writeSize) const;
@@ -1610,6 +1702,7 @@ class RenderBundle : public ObjectBase<RenderBundle, WGPURenderBundle> {
     using ObjectBase::operator=;
 
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1629,11 +1722,14 @@ class RenderBundleEncoder : public ObjectBase<RenderBundleEncoder, WGPURenderBun
     inline void DrawIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset) const;
     inline RenderBundle Finish(RenderBundleDescriptor const * descriptor = nullptr) const;
     inline void InsertDebugMarker(char const * markerLabel) const;
+    inline void InsertDebugMarker(StringView markerLabel) const;
     inline void PopDebugGroup() const;
     inline void PushDebugGroup(char const * groupLabel) const;
+    inline void PushDebugGroup(StringView groupLabel) const;
     inline void SetBindGroup(uint32_t groupIndex, BindGroup const& group, size_t dynamicOffsetCount = 0, uint32_t const * dynamicOffsets = nullptr) const;
     inline void SetIndexBuffer(Buffer const& buffer, IndexFormat format, uint64_t offset = 0, uint64_t size = WGPU_WHOLE_SIZE) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void SetPipeline(RenderPipeline const& pipeline) const;
     inline void SetVertexBuffer(uint32_t slot, Buffer const& buffer, uint64_t offset = 0, uint64_t size = WGPU_WHOLE_SIZE) const;
 
@@ -1658,13 +1754,18 @@ class RenderPassEncoder : public ObjectBase<RenderPassEncoder, WGPURenderPassEnc
     inline void EndOcclusionQuery() const;
     inline void ExecuteBundles(size_t bundleCount, RenderBundle const * bundles) const;
     inline void InsertDebugMarker(char const * markerLabel) const;
+    inline void InsertDebugMarker(StringView markerLabel) const;
+    inline void MultiDrawIndexedIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset = 0) const;
+    inline void MultiDrawIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset = 0) const;
     inline void PixelLocalStorageBarrier() const;
     inline void PopDebugGroup() const;
     inline void PushDebugGroup(char const * groupLabel) const;
+    inline void PushDebugGroup(StringView groupLabel) const;
     inline void SetBindGroup(uint32_t groupIndex, BindGroup const& group, size_t dynamicOffsetCount = 0, uint32_t const * dynamicOffsets = nullptr) const;
     inline void SetBlendConstant(Color const * color) const;
     inline void SetIndexBuffer(Buffer const& buffer, IndexFormat format, uint64_t offset = 0, uint64_t size = WGPU_WHOLE_SIZE) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void SetPipeline(RenderPipeline const& pipeline) const;
     inline void SetScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height) const;
     inline void SetStencilReference(uint32_t reference) const;
@@ -1686,6 +1787,7 @@ class RenderPipeline : public ObjectBase<RenderPipeline, WGPURenderPipeline> {
 
     inline BindGroupLayout GetBindGroupLayout(uint32_t groupIndex) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1700,6 +1802,7 @@ class Sampler : public ObjectBase<Sampler, WGPUSampler> {
     using ObjectBase::operator=;
 
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1724,6 +1827,7 @@ class ShaderModule : public ObjectBase<ShaderModule, WGPUShaderModule> {
     Future GetCompilationInfo(CallbackMode callbackMode, L callback) const;
     inline Future GetCompilationInfo(CompilationInfoCallbackInfo callbackInfo) const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1743,6 +1847,7 @@ class SharedBufferMemory : public ObjectBase<SharedBufferMemory, WGPUSharedBuffe
     inline ConvertibleStatus GetProperties(SharedBufferMemoryProperties * properties) const;
     inline Bool IsDeviceLost() const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1776,6 +1881,7 @@ class SharedTextureMemory : public ObjectBase<SharedTextureMemory, WGPUSharedTex
     inline ConvertibleStatus GetProperties(SharedTextureMemoryProperties * properties) const;
     inline Bool IsDeviceLost() const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1794,6 +1900,8 @@ class Surface : public ObjectBase<Surface, WGPUSurface> {
     inline void GetCurrentTexture(SurfaceTexture * surfaceTexture) const;
     inline TextureFormat GetPreferredFormat(Adapter const& adapter) const;
     inline void Present() const;
+    inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
     inline void Unconfigure() const;
 
 
@@ -1836,6 +1944,7 @@ class Texture : public ObjectBase<Texture, WGPUTexture> {
     inline TextureUsage GetUsage() const;
     inline uint32_t GetWidth() const;
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1850,6 +1959,7 @@ class TextureView : public ObjectBase<TextureView, WGPUTextureView> {
     using ObjectBase::operator=;
 
     inline void SetLabel(char const * label) const;
+    inline void SetLabel(NullableStringView label) const;
 
 
   private:
@@ -1873,6 +1983,8 @@ static_assert(offsetof(ChainedStruct, sType) == offsetof(WGPUChainedStruct, sTyp
 struct INTERNAL__HAVE_EMDAWNWEBGPU_HEADER {
     inline operator const WGPUINTERNAL__HAVE_EMDAWNWEBGPU_HEADER&() const noexcept;
 
+
+
 };
 
 struct AdapterInfo {
@@ -1894,6 +2006,8 @@ struct AdapterInfo {
     uint32_t const vendorID = {};
     uint32_t const deviceID = {};
     Bool const compatibilityMode = false;
+
+
 
   private:
     inline void FreeMembers();
@@ -1920,6 +2034,8 @@ struct AdapterProperties {
     BackendType const backendType = {};
     Bool const compatibilityMode = false;
 
+
+
   private:
     inline void FreeMembers();
     static inline void Reset(AdapterProperties& value);
@@ -1936,6 +2052,8 @@ struct AdapterPropertiesD3D : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t shaderModel;
+
+
 };
 
 // Can be chained in AdapterInfo
@@ -1949,6 +2067,8 @@ struct AdapterPropertiesVk : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t driverVersion;
+
+
 };
 
 struct BindGroupEntry {
@@ -1961,6 +2081,8 @@ struct BindGroupEntry {
     uint64_t size = WGPU_WHOLE_SIZE;
     Sampler sampler = nullptr;
     TextureView textureView = nullptr;
+
+
 };
 
 struct BlendComponent {
@@ -1969,6 +2091,8 @@ struct BlendComponent {
     BlendOperation operation = BlendOperation::Add;
     BlendFactor srcFactor = BlendFactor::One;
     BlendFactor dstFactor = BlendFactor::Zero;
+
+
 };
 
 struct BufferBindingLayout {
@@ -1978,6 +2102,8 @@ struct BufferBindingLayout {
     BufferBindingType type = BufferBindingType::Undefined;
     Bool hasDynamicOffset = false;
     uint64_t minBindingSize = 0;
+
+
 };
 
 struct BufferDescriptor {
@@ -1988,6 +2114,8 @@ struct BufferDescriptor {
     BufferUsage usage;
     uint64_t size;
     Bool mappedAtCreation = false;
+
+
 };
 
 // Can be chained in BufferDescriptor
@@ -2002,6 +2130,8 @@ struct BufferHostMappedPointer : ChainedStruct {
     alignas(kFirstMemberAlignment) void * pointer;
     Callback disposeCallback;
     void * userdata;
+
+
 };
 
 struct BufferMapCallbackInfo {
@@ -2011,6 +2141,8 @@ struct BufferMapCallbackInfo {
     CallbackMode mode;
     BufferMapCallback callback;
     void * userdata;
+
+
 };
 
 struct Color {
@@ -2020,6 +2152,8 @@ struct Color {
     double g;
     double b;
     double a;
+
+
 };
 
 // Can be chained in ColorTargetState
@@ -2032,6 +2166,8 @@ struct ColorTargetStateExpandResolveTextureDawn : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool enabled = false;
+
+
 };
 
 struct CommandBufferDescriptor {
@@ -2039,6 +2175,8 @@ struct CommandBufferDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct CommandEncoderDescriptor {
@@ -2046,6 +2184,8 @@ struct CommandEncoderDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct CompilationInfoCallbackInfo {
@@ -2055,6 +2195,8 @@ struct CompilationInfoCallbackInfo {
     CallbackMode mode;
     CompilationInfoCallback callback;
     void * userdata = nullptr;
+
+
 };
 
 struct CompilationMessage {
@@ -2070,6 +2212,8 @@ struct CompilationMessage {
     uint64_t utf16LinePos;
     uint64_t utf16Offset;
     uint64_t utf16Length;
+
+
 };
 
 struct ComputePassTimestampWrites {
@@ -2078,6 +2222,8 @@ struct ComputePassTimestampWrites {
     QuerySet querySet;
     uint32_t beginningOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED;
     uint32_t endOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED;
+
+
 };
 
 struct ConstantEntry {
@@ -2086,6 +2232,8 @@ struct ConstantEntry {
     ChainedStruct const * nextInChain = nullptr;
     char const * key;
     double value;
+
+
 };
 
 struct CopyTextureForBrowserOptions {
@@ -2100,6 +2248,8 @@ struct CopyTextureForBrowserOptions {
     float const * dstTransferFunctionParameters = nullptr;
     AlphaMode dstAlphaMode = AlphaMode::Unpremultiplied;
     Bool internalUsage = false;
+
+
 };
 
 struct CreateComputePipelineAsyncCallbackInfo {
@@ -2109,6 +2259,8 @@ struct CreateComputePipelineAsyncCallbackInfo {
     CallbackMode mode;
     CreateComputePipelineAsyncCallback callback;
     void * userdata;
+
+
 };
 
 struct CreateRenderPipelineAsyncCallbackInfo {
@@ -2118,6 +2270,8 @@ struct CreateRenderPipelineAsyncCallbackInfo {
     CallbackMode mode;
     CreateRenderPipelineAsyncCallback callback;
     void * userdata;
+
+
 };
 
 // Can be chained in InstanceDescriptor
@@ -2131,6 +2285,8 @@ struct DawnWGSLBlocklist : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(size_t ));
     alignas(kFirstMemberAlignment) size_t blocklistedFeatureCount = 0;
     const char* const * blocklistedFeatures;
+
+
 };
 
 // Can be chained in AdapterInfo
@@ -2144,6 +2300,8 @@ struct DawnAdapterPropertiesPowerPreference : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(PowerPreference ));
     alignas(kFirstMemberAlignment) PowerPreference powerPreference = PowerPreference::Undefined;
+
+
 };
 
 // Can be chained in BufferDescriptor
@@ -2156,6 +2314,8 @@ struct DawnBufferDescriptorErrorInfoFromWireClient : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool outOfMemory = false;
+
+
 };
 
 // Can be chained in DeviceDescriptor
@@ -2171,6 +2331,8 @@ struct DawnCacheDeviceDescriptor : ChainedStruct {
     DawnLoadCacheDataFunction loadDataFunction = nullptr;
     DawnStoreCacheDataFunction storeDataFunction = nullptr;
     void * functionUserdata = nullptr;
+
+
 };
 
 // Can be chained in ComputePipelineDescriptor
@@ -2183,6 +2345,8 @@ struct DawnComputePipelineFullSubgroups : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool requiresFullSubgroups = false;
+
+
 };
 
 // Can be chained in CommandEncoderDescriptor
@@ -2195,6 +2359,8 @@ struct DawnEncoderInternalUsageDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool useInternalUsages = false;
+
+
 };
 
 // Can be chained in SupportedLimits
@@ -2208,6 +2374,8 @@ struct DawnExperimentalSubgroupLimits : ChainedStructOut {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t minSubgroupSize = WGPU_LIMIT_U32_UNDEFINED;
     uint32_t maxSubgroupSize = WGPU_LIMIT_U32_UNDEFINED;
+
+
 };
 
 // Can be chained in RenderPassColorAttachment
@@ -2220,6 +2388,8 @@ struct DawnRenderPassColorAttachmentRenderToSingleSampled : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t implicitSampleCount = 1;
+
+
 };
 
 // Can be chained in ShaderModuleDescriptor
@@ -2232,6 +2402,8 @@ struct DawnShaderModuleSPIRVOptionsDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool allowNonUniformDerivatives = false;
+
+
 };
 
 // Can be chained in TextureDescriptor
@@ -2244,6 +2416,8 @@ struct DawnTextureInternalUsageDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(TextureUsage ));
     alignas(kFirstMemberAlignment) TextureUsage internalUsage = TextureUsage::None;
+
+
 };
 
 // Can be chained in InstanceDescriptor
@@ -2261,6 +2435,8 @@ struct DawnTogglesDescriptor : ChainedStruct {
     const char* const * enabledToggles;
     size_t disabledToggleCount = 0;
     const char* const * disabledToggles;
+
+
 };
 
 // Can be chained in InstanceDescriptor
@@ -2275,18 +2451,8 @@ struct DawnWireWGSLControl : ChainedStruct {
     alignas(kFirstMemberAlignment) Bool enableExperimental = false;
     Bool enableUnsafe = false;
     Bool enableTesting = false;
-};
 
-// Can be chained in DepthStencilState
-struct DepthStencilStateDepthWriteDefinedDawn : ChainedStruct {
-    inline DepthStencilStateDepthWriteDefinedDawn();
 
-    struct Init;
-    inline DepthStencilStateDepthWriteDefinedDawn(Init&& init);
-    inline operator const WGPUDepthStencilStateDepthWriteDefinedDawn&() const noexcept;
-
-    static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
-    alignas(kFirstMemberAlignment) Bool depthWriteDefined;
 };
 
 struct DeviceLostCallbackInfo {
@@ -2296,6 +2462,8 @@ struct DeviceLostCallbackInfo {
     CallbackMode mode = CallbackMode::WaitAnyOnly;
     DeviceLostCallbackNew callback = nullptr;
     void * userdata = nullptr;
+
+
 };
 
 struct DrmFormatProperties {
@@ -2303,6 +2471,8 @@ struct DrmFormatProperties {
 
     uint64_t modifier;
     uint32_t modifierPlaneCount;
+
+
 };
 
 struct Extent2D {
@@ -2310,6 +2480,8 @@ struct Extent2D {
 
     uint32_t width;
     uint32_t height;
+
+
 };
 
 struct Extent3D {
@@ -2318,6 +2490,8 @@ struct Extent3D {
     uint32_t width;
     uint32_t height = 1;
     uint32_t depthOrArrayLayers = 1;
+
+
 };
 
 // Can be chained in BindGroupEntry
@@ -2330,6 +2504,8 @@ struct ExternalTextureBindingEntry : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(ExternalTexture ));
     alignas(kFirstMemberAlignment) ExternalTexture externalTexture;
+
+
 };
 
 // Can be chained in BindGroupLayoutEntry
@@ -2340,18 +2516,24 @@ struct ExternalTextureBindingLayout : ChainedStruct {
     inline ExternalTextureBindingLayout(Init&& init);
     inline operator const WGPUExternalTextureBindingLayout&() const noexcept;
 
+
+
 };
 
 struct FormatCapabilities {
     inline operator const WGPUFormatCapabilities&() const noexcept;
 
     ChainedStructOut  * nextInChain = nullptr;
+
+
 };
 
 struct Future {
     inline operator const WGPUFuture&() const noexcept;
 
     uint64_t id;
+
+
 };
 
 struct InstanceFeatures {
@@ -2360,6 +2542,8 @@ struct InstanceFeatures {
     ChainedStruct const * nextInChain = nullptr;
     Bool timedWaitAnyEnable = false;
     size_t timedWaitAnyMaxCount = 0;
+
+
 };
 
 struct Limits {
@@ -2397,6 +2581,8 @@ struct Limits {
     uint32_t maxComputeWorkgroupSizeY = WGPU_LIMIT_U32_UNDEFINED;
     uint32_t maxComputeWorkgroupSizeZ = WGPU_LIMIT_U32_UNDEFINED;
     uint32_t maxComputeWorkgroupsPerDimension = WGPU_LIMIT_U32_UNDEFINED;
+
+
 };
 
 struct MemoryHeapInfo {
@@ -2404,6 +2590,8 @@ struct MemoryHeapInfo {
 
     HeapProperty properties;
     uint64_t size;
+
+
 };
 
 struct MultisampleState {
@@ -2413,6 +2601,44 @@ struct MultisampleState {
     uint32_t count = 1;
     uint32_t mask = 0xFFFFFFFF;
     Bool alphaToCoverageEnabled = false;
+
+
+};
+
+struct NullableStringView {
+    inline operator const WGPUStringView&() const noexcept;
+
+    char const * data = nullptr;
+    size_t length = SIZE_MAX;
+
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    inline constexpr NullableStringView(const std::string_view& sv) noexcept {
+        this->data = sv.data();
+        this->length = sv.length();
+    }
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    inline constexpr NullableStringView(const char* s) {
+        this->data = s;
+        this->length = SIZE_MAX;  // use strlen
+    }
+    inline constexpr NullableStringView(const char* data, size_t length) {
+        this->data = data;
+        this->length = length;
+    }
+    inline constexpr NullableStringView() noexcept = default;
+
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    inline constexpr NullableStringView(std::nullptr_t) {
+        this->data = nullptr;
+        this->length = SIZE_MAX;
+    }
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    inline constexpr NullableStringView(std::nullopt_t) {
+        this->data = nullptr;
+        this->length = SIZE_MAX;
+    }
+
+
 };
 
 struct Origin2D {
@@ -2420,6 +2646,8 @@ struct Origin2D {
 
     uint32_t x = 0;
     uint32_t y = 0;
+
+
 };
 
 struct Origin3D {
@@ -2428,6 +2656,8 @@ struct Origin3D {
     uint32_t x = 0;
     uint32_t y = 0;
     uint32_t z = 0;
+
+
 };
 
 struct PipelineLayoutDescriptor {
@@ -2437,6 +2667,8 @@ struct PipelineLayoutDescriptor {
     char const * label = nullptr;
     size_t bindGroupLayoutCount;
     BindGroupLayout const * bindGroupLayouts;
+
+
 };
 
 struct PipelineLayoutStorageAttachment {
@@ -2445,6 +2677,8 @@ struct PipelineLayoutStorageAttachment {
     ChainedStruct const * nextInChain = nullptr;
     uint64_t offset = 0;
     TextureFormat format;
+
+
 };
 
 struct PopErrorScopeCallbackInfo {
@@ -2455,6 +2689,8 @@ struct PopErrorScopeCallbackInfo {
     PopErrorScopeCallback callback;
     ErrorCallback oldCallback;
     void * userdata = nullptr;
+
+
 };
 
 // Can be chained in PrimitiveState
@@ -2467,6 +2703,8 @@ struct PrimitiveDepthClipControl : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool unclippedDepth = false;
+
+
 };
 
 struct PrimitiveState {
@@ -2477,6 +2715,9 @@ struct PrimitiveState {
     IndexFormat stripIndexFormat = IndexFormat::Undefined;
     FrontFace frontFace = FrontFace::CCW;
     CullMode cullMode = CullMode::None;
+    Bool unclippedDepth = false;
+
+
 };
 
 struct QuerySetDescriptor {
@@ -2486,6 +2727,8 @@ struct QuerySetDescriptor {
     char const * label = nullptr;
     QueryType type;
     uint32_t count;
+
+
 };
 
 struct QueueDescriptor {
@@ -2493,6 +2736,8 @@ struct QueueDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct QueueWorkDoneCallbackInfo {
@@ -2502,6 +2747,8 @@ struct QueueWorkDoneCallbackInfo {
     CallbackMode mode;
     QueueWorkDoneCallback callback;
     void * userdata;
+
+
 };
 
 struct RenderBundleDescriptor {
@@ -2509,6 +2756,8 @@ struct RenderBundleDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct RenderBundleEncoderDescriptor {
@@ -2522,6 +2771,8 @@ struct RenderBundleEncoderDescriptor {
     uint32_t sampleCount = 1;
     Bool depthReadOnly = false;
     Bool stencilReadOnly = false;
+
+
 };
 
 struct RenderPassDepthStencilAttachment {
@@ -2536,6 +2787,25 @@ struct RenderPassDepthStencilAttachment {
     StoreOp stencilStoreOp = StoreOp::Undefined;
     uint32_t stencilClearValue = 0;
     Bool stencilReadOnly = false;
+
+
+};
+
+// Can be chained in RenderPassDescriptor
+struct RenderPassDescriptorExpandResolveRect : ChainedStruct {
+    inline RenderPassDescriptorExpandResolveRect();
+
+    struct Init;
+    inline RenderPassDescriptorExpandResolveRect(Init&& init);
+    inline operator const WGPURenderPassDescriptorExpandResolveRect&() const noexcept;
+
+    static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
+    alignas(kFirstMemberAlignment) uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+
+
 };
 
 // Can be chained in RenderPassDescriptor
@@ -2548,6 +2818,8 @@ struct RenderPassDescriptorMaxDrawCount : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint64_t ));
     alignas(kFirstMemberAlignment) uint64_t maxDrawCount = 50000000;
+
+
 };
 
 struct RenderPassTimestampWrites {
@@ -2556,6 +2828,8 @@ struct RenderPassTimestampWrites {
     QuerySet querySet;
     uint32_t beginningOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED;
     uint32_t endOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED;
+
+
 };
 
 struct RequestAdapterCallbackInfo {
@@ -2565,6 +2839,8 @@ struct RequestAdapterCallbackInfo {
     CallbackMode mode;
     RequestAdapterCallback callback;
     void * userdata;
+
+
 };
 
 struct RequestAdapterOptions {
@@ -2576,6 +2852,8 @@ struct RequestAdapterOptions {
     BackendType backendType = BackendType::Undefined;
     Bool forceFallbackAdapter = false;
     Bool compatibilityMode = false;
+
+
 };
 
 struct RequestDeviceCallbackInfo {
@@ -2585,6 +2863,8 @@ struct RequestDeviceCallbackInfo {
     CallbackMode mode;
     RequestDeviceCallback callback;
     void * userdata;
+
+
 };
 
 struct SamplerBindingLayout {
@@ -2592,6 +2872,8 @@ struct SamplerBindingLayout {
 
     ChainedStruct const * nextInChain = nullptr;
     SamplerBindingType type = SamplerBindingType::Undefined;
+
+
 };
 
 struct SamplerDescriptor {
@@ -2609,6 +2891,8 @@ struct SamplerDescriptor {
     float lodMaxClamp = 32.0f;
     CompareFunction compare = CompareFunction::Undefined;
     uint16_t maxAnisotropy = 1;
+
+
 };
 
 // Can be chained in ShaderModuleDescriptor
@@ -2622,6 +2906,8 @@ struct ShaderModuleSPIRVDescriptor : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t codeSize;
     uint32_t const * code;
+
+
 };
 
 // Can be chained in ShaderModuleDescriptor
@@ -2634,6 +2920,8 @@ struct ShaderModuleWGSLDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(char const * ));
     alignas(kFirstMemberAlignment) char const * code;
+
+
 };
 
 // Can be chained in ShaderModuleDescriptor
@@ -2646,6 +2934,8 @@ struct ShaderModuleCompilationOptions : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool strictMath;
+
+
 };
 
 struct ShaderModuleDescriptor {
@@ -2653,6 +2943,8 @@ struct ShaderModuleDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct SharedBufferMemoryBeginAccessDescriptor {
@@ -2663,6 +2955,8 @@ struct SharedBufferMemoryBeginAccessDescriptor {
     size_t fenceCount = 0;
     SharedFence const * fences;
     uint64_t const * signaledValues;
+
+
 };
 
 struct SharedBufferMemoryDescriptor {
@@ -2670,6 +2964,8 @@ struct SharedBufferMemoryDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct SharedBufferMemoryEndAccessState {
@@ -2687,6 +2983,8 @@ struct SharedBufferMemoryEndAccessState {
     SharedFence const * const fences = {};
     uint64_t const * const signaledValues = {};
 
+
+
   private:
     inline void FreeMembers();
     static inline void Reset(SharedBufferMemoryEndAccessState& value);
@@ -2698,6 +2996,8 @@ struct SharedBufferMemoryProperties {
     ChainedStructOut  * nextInChain = nullptr;
     BufferUsage usage;
     uint64_t size;
+
+
 };
 
 // Can be chained in SharedFenceDescriptor
@@ -2710,6 +3010,8 @@ struct SharedFenceDXGISharedHandleDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * handle;
+
+
 };
 
 // Can be chained in SharedFenceExportInfo
@@ -2722,6 +3024,8 @@ struct SharedFenceDXGISharedHandleExportInfo : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * handle;
+
+
 };
 
 // Can be chained in SharedFenceDescriptor
@@ -2734,6 +3038,8 @@ struct SharedFenceMTLSharedEventDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * sharedEvent;
+
+
 };
 
 // Can be chained in SharedFenceExportInfo
@@ -2746,6 +3052,8 @@ struct SharedFenceMTLSharedEventExportInfo : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * sharedEvent;
+
+
 };
 
 struct SharedFenceDescriptor {
@@ -2753,6 +3061,8 @@ struct SharedFenceDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct SharedFenceExportInfo {
@@ -2760,6 +3070,8 @@ struct SharedFenceExportInfo {
 
     ChainedStructOut  * nextInChain = nullptr;
     SharedFenceType type;
+
+
 };
 
 // Can be chained in SharedFenceDescriptor
@@ -2772,6 +3084,8 @@ struct SharedFenceVkSemaphoreOpaqueFDDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(int ));
     alignas(kFirstMemberAlignment) int handle;
+
+
 };
 
 // Can be chained in SharedFenceExportInfo
@@ -2784,6 +3098,8 @@ struct SharedFenceVkSemaphoreOpaqueFDExportInfo : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(int ));
     alignas(kFirstMemberAlignment) int handle;
+
+
 };
 
 // Can be chained in SharedFenceDescriptor
@@ -2796,6 +3112,8 @@ struct SharedFenceVkSemaphoreSyncFDDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(int ));
     alignas(kFirstMemberAlignment) int handle;
+
+
 };
 
 // Can be chained in SharedFenceExportInfo
@@ -2808,6 +3126,8 @@ struct SharedFenceVkSemaphoreSyncFDExportInfo : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(int ));
     alignas(kFirstMemberAlignment) int handle;
+
+
 };
 
 // Can be chained in SharedFenceDescriptor
@@ -2820,6 +3140,8 @@ struct SharedFenceVkSemaphoreZirconHandleDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t handle;
+
+
 };
 
 // Can be chained in SharedFenceExportInfo
@@ -2832,6 +3154,8 @@ struct SharedFenceVkSemaphoreZirconHandleExportInfo : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t handle;
+
+
 };
 
 // Can be chained in SharedTextureMemoryBeginAccessDescriptor
@@ -2844,6 +3168,8 @@ struct SharedTextureMemoryD3DSwapchainBeginState : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool isSwapchain = false;
+
+
 };
 
 // Can be chained in SharedTextureMemoryDescriptor
@@ -2857,6 +3183,8 @@ struct SharedTextureMemoryDXGISharedHandleDescriptor : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * handle;
     Bool useKeyedMutex;
+
+
 };
 
 // Can be chained in SharedTextureMemoryDescriptor
@@ -2869,6 +3197,8 @@ struct SharedTextureMemoryEGLImageDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * image;
+
+
 };
 
 // Can be chained in SharedTextureMemoryDescriptor
@@ -2881,6 +3211,8 @@ struct SharedTextureMemoryIOSurfaceDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * ioSurface;
+
+
 };
 
 // Can be chained in SharedTextureMemoryDescriptor
@@ -2894,6 +3226,8 @@ struct SharedTextureMemoryAHardwareBufferDescriptor : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * handle;
     Bool useExternalFormat;
+
+
 };
 
 struct SharedTextureMemoryBeginAccessDescriptor {
@@ -2905,6 +3239,8 @@ struct SharedTextureMemoryBeginAccessDescriptor {
     size_t fenceCount;
     SharedFence const * fences;
     uint64_t const * signaledValues;
+
+
 };
 
 struct SharedTextureMemoryDescriptor {
@@ -2912,6 +3248,8 @@ struct SharedTextureMemoryDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 struct SharedTextureMemoryDmaBufPlane {
@@ -2920,6 +3258,8 @@ struct SharedTextureMemoryDmaBufPlane {
     int fd;
     uint64_t offset;
     uint32_t stride;
+
+
 };
 
 struct SharedTextureMemoryEndAccessState {
@@ -2936,6 +3276,8 @@ struct SharedTextureMemoryEndAccessState {
     size_t const fenceCount = {};
     SharedFence const * const fences = {};
     uint64_t const * const signaledValues = {};
+
+
 
   private:
     inline void FreeMembers();
@@ -2956,6 +3298,8 @@ struct SharedTextureMemoryOpaqueFDDescriptor : ChainedStruct {
     uint32_t memoryTypeIndex;
     uint64_t allocationSize;
     Bool dedicatedAllocation;
+
+
 };
 
 // Can be chained in SharedTextureMemoryDescriptor
@@ -2968,6 +3312,8 @@ struct SharedTextureMemoryVkDedicatedAllocationDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
     alignas(kFirstMemberAlignment) Bool dedicatedAllocation;
+
+
 };
 
 // Can be chained in SharedTextureMemoryBeginAccessDescriptor
@@ -2981,6 +3327,8 @@ struct SharedTextureMemoryVkImageLayoutBeginState : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(int32_t ));
     alignas(kFirstMemberAlignment) int32_t oldLayout;
     int32_t newLayout;
+
+
 };
 
 // Can be chained in SharedTextureMemoryEndAccessState
@@ -2994,6 +3342,8 @@ struct SharedTextureMemoryVkImageLayoutEndState : ChainedStructOut {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(int32_t ));
     alignas(kFirstMemberAlignment) int32_t oldLayout;
     int32_t newLayout;
+
+
 };
 
 // Can be chained in SharedTextureMemoryDescriptor
@@ -3007,6 +3357,8 @@ struct SharedTextureMemoryZirconHandleDescriptor : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
     alignas(kFirstMemberAlignment) uint32_t memoryFD;
     uint64_t allocationSize;
+
+
 };
 
 // Can be chained in BindGroupLayoutEntry
@@ -3019,6 +3371,9 @@ struct StaticSamplerBindingLayout : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Sampler ));
     alignas(kFirstMemberAlignment) Sampler sampler;
+    uint32_t sampledTextureBinding = WGPU_LIMIT_U32_UNDEFINED;
+
+
 };
 
 struct StencilFaceState {
@@ -3028,6 +3383,8 @@ struct StencilFaceState {
     StencilOperation failOp = StencilOperation::Keep;
     StencilOperation depthFailOp = StencilOperation::Keep;
     StencilOperation passOp = StencilOperation::Keep;
+
+
 };
 
 struct StorageTextureBindingLayout {
@@ -3037,6 +3394,32 @@ struct StorageTextureBindingLayout {
     StorageTextureAccess access = StorageTextureAccess::Undefined;
     TextureFormat format = TextureFormat::Undefined;
     TextureViewDimension viewDimension = TextureViewDimension::e2D;
+
+
+};
+
+struct StringView {
+    inline operator const WGPUStringView&() const noexcept;
+
+    char const * data = nullptr;
+    size_t length = SIZE_MAX;
+
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    inline constexpr StringView(const std::string_view& sv) noexcept {
+        this->data = sv.data();
+        this->length = sv.length();
+    }
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    inline constexpr StringView(const char* s) {
+        this->data = s;
+        this->length = SIZE_MAX;  // use strlen
+    }
+    inline constexpr StringView(const char* data, size_t length) {
+        this->data = data;
+        this->length = length;
+    }
+
+
 };
 
 struct SurfaceCapabilities {
@@ -3057,6 +3440,8 @@ struct SurfaceCapabilities {
     size_t const alphaModeCount = {};
     CompositeAlphaMode const * const alphaModes = {};
 
+
+
   private:
     inline void FreeMembers();
     static inline void Reset(SurfaceCapabilities& value);
@@ -3075,6 +3460,8 @@ struct SurfaceConfiguration {
     uint32_t width;
     uint32_t height;
     PresentMode presentMode = PresentMode::Fifo;
+
+
 };
 
 struct SurfaceDescriptor {
@@ -3082,6 +3469,8 @@ struct SurfaceDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3094,6 +3483,8 @@ struct SurfaceDescriptorFromAndroidNativeWindow : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * window;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3106,6 +3497,8 @@ struct SurfaceDescriptorFromCanvasHTMLSelector : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(char const * ));
     alignas(kFirstMemberAlignment) char const * selector;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3118,6 +3511,8 @@ struct SurfaceDescriptorFromMetalLayer : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * layer;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3131,6 +3526,8 @@ struct SurfaceDescriptorFromWaylandSurface : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * display;
     void * surface;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3144,6 +3541,8 @@ struct SurfaceDescriptorFromWindowsHWND : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * hinstance;
     void * hwnd;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3156,6 +3555,8 @@ struct SurfaceDescriptorFromWindowsCoreWindow : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * coreWindow;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3168,6 +3569,8 @@ struct SurfaceDescriptorFromWindowsSwapChainPanel : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * swapChainPanel;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3181,6 +3584,8 @@ struct SurfaceDescriptorFromXcbWindow : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * connection;
     uint32_t window;
+
+
 };
 
 // Can be chained in SurfaceDescriptor
@@ -3194,6 +3599,8 @@ struct SurfaceDescriptorFromXlibWindow : ChainedStruct {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(void * ));
     alignas(kFirstMemberAlignment) void * display;
     uint64_t window;
+
+
 };
 
 struct SurfaceTexture {
@@ -3202,6 +3609,8 @@ struct SurfaceTexture {
     Texture texture;
     Bool suboptimal;
     SurfaceGetCurrentTextureStatus status;
+
+
 };
 
 struct SwapChainDescriptor {
@@ -3214,6 +3623,8 @@ struct SwapChainDescriptor {
     uint32_t width;
     uint32_t height;
     PresentMode presentMode;
+
+
 };
 
 struct TextureBindingLayout {
@@ -3223,6 +3634,8 @@ struct TextureBindingLayout {
     TextureSampleType sampleType = TextureSampleType::Undefined;
     TextureViewDimension viewDimension = TextureViewDimension::e2D;
     Bool multisampled = false;
+
+
 };
 
 // Can be chained in TextureDescriptor
@@ -3235,6 +3648,8 @@ struct TextureBindingViewDimensionDescriptor : ChainedStruct {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(TextureViewDimension ));
     alignas(kFirstMemberAlignment) TextureViewDimension textureBindingViewDimension = TextureViewDimension::Undefined;
+
+
 };
 
 struct TextureDataLayout {
@@ -3244,6 +3659,8 @@ struct TextureDataLayout {
     uint64_t offset = 0;
     uint32_t bytesPerRow = WGPU_COPY_STRIDE_UNDEFINED;
     uint32_t rowsPerImage = WGPU_COPY_STRIDE_UNDEFINED;
+
+
 };
 
 struct TextureViewDescriptor {
@@ -3258,6 +3675,8 @@ struct TextureViewDescriptor {
     uint32_t baseArrayLayer = 0;
     uint32_t arrayLayerCount = WGPU_ARRAY_LAYER_COUNT_UNDEFINED;
     TextureAspect aspect = TextureAspect::All;
+
+
 };
 
 struct UncapturedErrorCallbackInfo {
@@ -3266,6 +3685,8 @@ struct UncapturedErrorCallbackInfo {
     ChainedStruct const * nextInChain = nullptr;
     ErrorCallback callback = nullptr;
     void * userdata = nullptr;
+
+
 };
 
 struct VertexAttribute {
@@ -3274,6 +3695,8 @@ struct VertexAttribute {
     VertexFormat format;
     uint64_t offset;
     uint32_t shaderLocation;
+
+
 };
 
 // Can be chained in SamplerDescriptor
@@ -3298,12 +3721,16 @@ struct YCbCrVkDescriptor : ChainedStruct {
     FilterMode vkChromaFilter = FilterMode::Nearest;
     Bool forceExplicitReconstruction = false;
     uint64_t externalFormat = 0;
+
+
 };
 
 struct AHardwareBufferProperties {
     inline operator const WGPUAHardwareBufferProperties&() const noexcept;
 
     YCbCrVkDescriptor yCbCrInfo = {};
+
+
 };
 
 // Can be chained in AdapterInfo
@@ -3324,6 +3751,8 @@ struct AdapterPropertiesMemoryHeaps : ChainedStructOut {
     alignas(kFirstMemberAlignment) size_t const heapCount = {};
     MemoryHeapInfo const * const heapInfo = {};
 
+
+
   private:
     inline void FreeMembers();
     static inline void Reset(AdapterPropertiesMemoryHeaps& value);
@@ -3337,6 +3766,8 @@ struct BindGroupDescriptor {
     BindGroupLayout layout;
     size_t entryCount;
     BindGroupEntry const * entries;
+
+
 };
 
 struct BindGroupLayoutEntry {
@@ -3349,6 +3780,8 @@ struct BindGroupLayoutEntry {
     SamplerBindingLayout sampler = {};
     TextureBindingLayout texture = {};
     StorageTextureBindingLayout storageTexture = {};
+
+
 };
 
 struct BlendState {
@@ -3356,6 +3789,8 @@ struct BlendState {
 
     BlendComponent color = {};
     BlendComponent alpha = {};
+
+
 };
 
 struct CompilationInfo {
@@ -3364,6 +3799,8 @@ struct CompilationInfo {
     ChainedStruct const * nextInChain = nullptr;
     size_t messageCount;
     CompilationMessage const * messages;
+
+
 };
 
 struct ComputePassDescriptor {
@@ -3372,6 +3809,8 @@ struct ComputePassDescriptor {
     ChainedStruct const * nextInChain = nullptr;
     char const * label = nullptr;
     ComputePassTimestampWrites const * timestampWrites = nullptr;
+
+
 };
 
 struct DepthStencilState {
@@ -3379,7 +3818,7 @@ struct DepthStencilState {
 
     ChainedStruct const * nextInChain = nullptr;
     TextureFormat format;
-    Bool depthWriteEnabled = false;
+    OptionalBool depthWriteEnabled = OptionalBool::Undefined;
     CompareFunction depthCompare = CompareFunction::Undefined;
     StencilFaceState stencilFront = {};
     StencilFaceState stencilBack = {};
@@ -3388,6 +3827,8 @@ struct DepthStencilState {
     int32_t depthBias = 0;
     float depthBiasSlopeScale = 0.0f;
     float depthBiasClamp = 0.0f;
+
+
 };
 
 // Can be chained in FormatCapabilities
@@ -3406,6 +3847,8 @@ struct DrmFormatCapabilities : ChainedStructOut {
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(size_t ));
     alignas(kFirstMemberAlignment) size_t const propertiesCount = {};
     DrmFormatProperties const * const properties = {};
+
+
 
   private:
     inline void FreeMembers();
@@ -3428,6 +3871,8 @@ struct ExternalTextureDescriptor {
     float const * gamutConversionMatrix;
     Bool mirrored = false;
     ExternalTextureRotation rotation = ExternalTextureRotation::Rotate0Degrees;
+
+
 };
 
 struct FutureWaitInfo {
@@ -3435,6 +3880,8 @@ struct FutureWaitInfo {
 
     Future future = {};
     Bool completed = false;
+
+
 };
 
 struct ImageCopyBuffer {
@@ -3442,6 +3889,8 @@ struct ImageCopyBuffer {
 
     TextureDataLayout layout = {};
     Buffer buffer;
+
+
 };
 
 struct ImageCopyExternalTexture {
@@ -3451,6 +3900,8 @@ struct ImageCopyExternalTexture {
     ExternalTexture externalTexture;
     Origin3D origin = {};
     Extent2D naturalSize = {};
+
+
 };
 
 struct ImageCopyTexture {
@@ -3460,6 +3911,8 @@ struct ImageCopyTexture {
     uint32_t mipLevel = 0;
     Origin3D origin = {};
     TextureAspect aspect = TextureAspect::All;
+
+
 };
 
 struct InstanceDescriptor {
@@ -3467,6 +3920,8 @@ struct InstanceDescriptor {
 
     ChainedStruct const * nextInChain = nullptr;
     InstanceFeatures features = {};
+
+
 };
 
 // Can be chained in PipelineLayoutDescriptor
@@ -3481,6 +3936,8 @@ struct PipelineLayoutPixelLocalStorage : ChainedStruct {
     alignas(kFirstMemberAlignment) uint64_t totalPixelLocalStorageSize;
     size_t storageAttachmentCount = 0;
     PipelineLayoutStorageAttachment const * storageAttachments;
+
+
 };
 
 struct ProgrammableStageDescriptor {
@@ -3491,6 +3948,8 @@ struct ProgrammableStageDescriptor {
     char const * entryPoint = nullptr;
     size_t constantCount = 0;
     ConstantEntry const * constants;
+
+
 };
 
 struct RenderPassColorAttachment {
@@ -3503,6 +3962,8 @@ struct RenderPassColorAttachment {
     LoadOp loadOp;
     StoreOp storeOp;
     Color clearValue = {};
+
+
 };
 
 struct RenderPassStorageAttachment {
@@ -3514,6 +3975,8 @@ struct RenderPassStorageAttachment {
     LoadOp loadOp;
     StoreOp storeOp;
     Color clearValue = {};
+
+
 };
 
 struct RequiredLimits {
@@ -3521,6 +3984,8 @@ struct RequiredLimits {
 
     ChainedStruct const * nextInChain = nullptr;
     Limits limits = {};
+
+
 };
 
 // Can be chained in SharedTextureMemoryProperties
@@ -3533,6 +3998,8 @@ struct SharedTextureMemoryAHardwareBufferProperties : ChainedStructOut {
 
     static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(YCbCrVkDescriptor ));
     alignas(kFirstMemberAlignment) YCbCrVkDescriptor yCbCrInfo = {};
+
+
 };
 
 // Can be chained in SharedTextureMemoryDescriptor
@@ -3549,6 +4016,8 @@ struct SharedTextureMemoryDmaBufDescriptor : ChainedStruct {
     uint64_t drmModifier;
     size_t planeCount;
     SharedTextureMemoryDmaBufPlane const * planes;
+
+
 };
 
 struct SharedTextureMemoryProperties {
@@ -3558,6 +4027,8 @@ struct SharedTextureMemoryProperties {
     TextureUsage usage;
     Extent3D size = {};
     TextureFormat format;
+
+
 };
 
 struct SupportedLimits {
@@ -3565,6 +4036,8 @@ struct SupportedLimits {
 
     ChainedStructOut  * nextInChain = nullptr;
     Limits limits = {};
+
+
 };
 
 struct TextureDescriptor {
@@ -3580,6 +4053,8 @@ struct TextureDescriptor {
     uint32_t sampleCount = 1;
     size_t viewFormatCount = 0;
     TextureFormat const * viewFormats;
+
+
 };
 
 struct VertexBufferLayout {
@@ -3589,6 +4064,8 @@ struct VertexBufferLayout {
     VertexStepMode stepMode = VertexStepMode::Vertex;
     size_t attributeCount;
     VertexAttribute const * attributes;
+
+
 };
 
 struct BindGroupLayoutDescriptor {
@@ -3598,6 +4075,8 @@ struct BindGroupLayoutDescriptor {
     char const * label = nullptr;
     size_t entryCount;
     BindGroupLayoutEntry const * entries;
+
+
 };
 
 struct ColorTargetState {
@@ -3607,6 +4086,8 @@ struct ColorTargetState {
     TextureFormat format;
     BlendState const * blend = nullptr;
     ColorWriteMask writeMask = ColorWriteMask::All;
+
+
 };
 
 struct ComputePipelineDescriptor {
@@ -3616,6 +4097,8 @@ struct ComputePipelineDescriptor {
     char const * label = nullptr;
     PipelineLayout layout = nullptr;
     ProgrammableStageDescriptor compute = {};
+
+
 };
 
 struct RenderPassDescriptor {
@@ -3628,6 +4111,8 @@ struct RenderPassDescriptor {
     RenderPassDepthStencilAttachment const * depthStencilAttachment = nullptr;
     QuerySet occlusionQuerySet = nullptr;
     RenderPassTimestampWrites const * timestampWrites = nullptr;
+
+
 };
 
 // Can be chained in RenderPassDescriptor
@@ -3642,6 +4127,8 @@ struct RenderPassPixelLocalStorage : ChainedStruct {
     alignas(kFirstMemberAlignment) uint64_t totalPixelLocalStorageSize;
     size_t storageAttachmentCount = 0;
     RenderPassStorageAttachment const * storageAttachments;
+
+
 };
 
 struct VertexState {
@@ -3654,6 +4141,8 @@ struct VertexState {
     ConstantEntry const * constants;
     size_t bufferCount = 0;
     VertexBufferLayout const * buffers;
+
+
 };
 
 struct FragmentState {
@@ -3666,6 +4155,8 @@ struct FragmentState {
     ConstantEntry const * constants;
     size_t targetCount;
     ColorTargetState const * targets;
+
+
 };
 
 struct RenderPipelineDescriptor {
@@ -3679,6 +4170,8 @@ struct RenderPipelineDescriptor {
     DepthStencilState const * depthStencil = nullptr;
     MultisampleState multisample = {};
     FragmentState const * fragment = nullptr;
+
+
 };
 
 
@@ -4559,26 +5052,6 @@ static_assert(offsetof(DawnWireWGSLControl, enableUnsafe) == offsetof(WGPUDawnWi
 static_assert(offsetof(DawnWireWGSLControl, enableTesting) == offsetof(WGPUDawnWireWGSLControl, enableTesting),
         "offsetof mismatch for DawnWireWGSLControl::enableTesting");
 
-// DepthStencilStateDepthWriteDefinedDawn implementation
-DepthStencilStateDepthWriteDefinedDawn::DepthStencilStateDepthWriteDefinedDawn()
-  : ChainedStruct { nullptr, SType::DepthStencilStateDepthWriteDefinedDawn } {}
-struct DepthStencilStateDepthWriteDefinedDawn::Init {
-    ChainedStruct * const nextInChain;
-    Bool depthWriteDefined;
-};
-DepthStencilStateDepthWriteDefinedDawn::DepthStencilStateDepthWriteDefinedDawn(DepthStencilStateDepthWriteDefinedDawn::Init&& init)
-  : ChainedStruct { init.nextInChain, SType::DepthStencilStateDepthWriteDefinedDawn }, 
-    depthWriteDefined(std::move(init.depthWriteDefined)){}
-
-DepthStencilStateDepthWriteDefinedDawn::operator const WGPUDepthStencilStateDepthWriteDefinedDawn&() const noexcept {
-    return *reinterpret_cast<const WGPUDepthStencilStateDepthWriteDefinedDawn*>(this);
-}
-
-static_assert(sizeof(DepthStencilStateDepthWriteDefinedDawn) == sizeof(WGPUDepthStencilStateDepthWriteDefinedDawn), "sizeof mismatch for DepthStencilStateDepthWriteDefinedDawn");
-static_assert(alignof(DepthStencilStateDepthWriteDefinedDawn) == alignof(WGPUDepthStencilStateDepthWriteDefinedDawn), "alignof mismatch for DepthStencilStateDepthWriteDefinedDawn");
-static_assert(offsetof(DepthStencilStateDepthWriteDefinedDawn, depthWriteDefined) == offsetof(WGPUDepthStencilStateDepthWriteDefinedDawn, depthWriteDefined),
-        "offsetof mismatch for DepthStencilStateDepthWriteDefinedDawn::depthWriteDefined");
-
 // DeviceLostCallbackInfo implementation
 
 DeviceLostCallbackInfo::operator const WGPUDeviceLostCallbackInfo&() const noexcept {
@@ -4813,6 +5286,19 @@ static_assert(offsetof(MultisampleState, mask) == offsetof(WGPUMultisampleState,
 static_assert(offsetof(MultisampleState, alphaToCoverageEnabled) == offsetof(WGPUMultisampleState, alphaToCoverageEnabled),
         "offsetof mismatch for MultisampleState::alphaToCoverageEnabled");
 
+// NullableStringView implementation
+
+NullableStringView::operator const WGPUStringView&() const noexcept {
+    return *reinterpret_cast<const WGPUStringView*>(this);
+}
+
+static_assert(sizeof(NullableStringView) == sizeof(WGPUStringView), "sizeof mismatch for NullableStringView");
+static_assert(alignof(NullableStringView) == alignof(WGPUStringView), "alignof mismatch for NullableStringView");
+static_assert(offsetof(NullableStringView, data) == offsetof(WGPUStringView, data),
+        "offsetof mismatch for NullableStringView::data");
+static_assert(offsetof(NullableStringView, length) == offsetof(WGPUStringView, length),
+        "offsetof mismatch for NullableStringView::length");
+
 // Origin2D implementation
 
 Origin2D::operator const WGPUOrigin2D&() const noexcept {
@@ -4930,6 +5416,8 @@ static_assert(offsetof(PrimitiveState, frontFace) == offsetof(WGPUPrimitiveState
         "offsetof mismatch for PrimitiveState::frontFace");
 static_assert(offsetof(PrimitiveState, cullMode) == offsetof(WGPUPrimitiveState, cullMode),
         "offsetof mismatch for PrimitiveState::cullMode");
+static_assert(offsetof(PrimitiveState, unclippedDepth) == offsetof(WGPUPrimitiveState, unclippedDepth),
+        "offsetof mismatch for PrimitiveState::unclippedDepth");
 
 // QuerySetDescriptor implementation
 
@@ -5042,6 +5530,38 @@ static_assert(offsetof(RenderPassDepthStencilAttachment, stencilClearValue) == o
         "offsetof mismatch for RenderPassDepthStencilAttachment::stencilClearValue");
 static_assert(offsetof(RenderPassDepthStencilAttachment, stencilReadOnly) == offsetof(WGPURenderPassDepthStencilAttachment, stencilReadOnly),
         "offsetof mismatch for RenderPassDepthStencilAttachment::stencilReadOnly");
+
+// RenderPassDescriptorExpandResolveRect implementation
+RenderPassDescriptorExpandResolveRect::RenderPassDescriptorExpandResolveRect()
+  : ChainedStruct { nullptr, SType::RenderPassDescriptorExpandResolveRect } {}
+struct RenderPassDescriptorExpandResolveRect::Init {
+    ChainedStruct * const nextInChain;
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+};
+RenderPassDescriptorExpandResolveRect::RenderPassDescriptorExpandResolveRect(RenderPassDescriptorExpandResolveRect::Init&& init)
+  : ChainedStruct { init.nextInChain, SType::RenderPassDescriptorExpandResolveRect }, 
+    x(std::move(init.x)), 
+    y(std::move(init.y)), 
+    width(std::move(init.width)), 
+    height(std::move(init.height)){}
+
+RenderPassDescriptorExpandResolveRect::operator const WGPURenderPassDescriptorExpandResolveRect&() const noexcept {
+    return *reinterpret_cast<const WGPURenderPassDescriptorExpandResolveRect*>(this);
+}
+
+static_assert(sizeof(RenderPassDescriptorExpandResolveRect) == sizeof(WGPURenderPassDescriptorExpandResolveRect), "sizeof mismatch for RenderPassDescriptorExpandResolveRect");
+static_assert(alignof(RenderPassDescriptorExpandResolveRect) == alignof(WGPURenderPassDescriptorExpandResolveRect), "alignof mismatch for RenderPassDescriptorExpandResolveRect");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, x) == offsetof(WGPURenderPassDescriptorExpandResolveRect, x),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::x");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, y) == offsetof(WGPURenderPassDescriptorExpandResolveRect, y),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::y");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, width) == offsetof(WGPURenderPassDescriptorExpandResolveRect, width),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::width");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, height) == offsetof(WGPURenderPassDescriptorExpandResolveRect, height),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::height");
 
 // RenderPassDescriptorMaxDrawCount implementation
 RenderPassDescriptorMaxDrawCount::RenderPassDescriptorMaxDrawCount()
@@ -5940,10 +6460,12 @@ StaticSamplerBindingLayout::StaticSamplerBindingLayout()
 struct StaticSamplerBindingLayout::Init {
     ChainedStruct * const nextInChain;
     Sampler sampler;
+    uint32_t sampledTextureBinding = WGPU_LIMIT_U32_UNDEFINED;
 };
 StaticSamplerBindingLayout::StaticSamplerBindingLayout(StaticSamplerBindingLayout::Init&& init)
   : ChainedStruct { init.nextInChain, SType::StaticSamplerBindingLayout }, 
-    sampler(std::move(init.sampler)){}
+    sampler(std::move(init.sampler)), 
+    sampledTextureBinding(std::move(init.sampledTextureBinding)){}
 
 StaticSamplerBindingLayout::operator const WGPUStaticSamplerBindingLayout&() const noexcept {
     return *reinterpret_cast<const WGPUStaticSamplerBindingLayout*>(this);
@@ -5953,6 +6475,8 @@ static_assert(sizeof(StaticSamplerBindingLayout) == sizeof(WGPUStaticSamplerBind
 static_assert(alignof(StaticSamplerBindingLayout) == alignof(WGPUStaticSamplerBindingLayout), "alignof mismatch for StaticSamplerBindingLayout");
 static_assert(offsetof(StaticSamplerBindingLayout, sampler) == offsetof(WGPUStaticSamplerBindingLayout, sampler),
         "offsetof mismatch for StaticSamplerBindingLayout::sampler");
+static_assert(offsetof(StaticSamplerBindingLayout, sampledTextureBinding) == offsetof(WGPUStaticSamplerBindingLayout, sampledTextureBinding),
+        "offsetof mismatch for StaticSamplerBindingLayout::sampledTextureBinding");
 
 // StencilFaceState implementation
 
@@ -5987,6 +6511,19 @@ static_assert(offsetof(StorageTextureBindingLayout, format) == offsetof(WGPUStor
         "offsetof mismatch for StorageTextureBindingLayout::format");
 static_assert(offsetof(StorageTextureBindingLayout, viewDimension) == offsetof(WGPUStorageTextureBindingLayout, viewDimension),
         "offsetof mismatch for StorageTextureBindingLayout::viewDimension");
+
+// StringView implementation
+
+StringView::operator const WGPUStringView&() const noexcept {
+    return *reinterpret_cast<const WGPUStringView*>(this);
+}
+
+static_assert(sizeof(StringView) == sizeof(WGPUStringView), "sizeof mismatch for StringView");
+static_assert(alignof(StringView) == alignof(WGPUStringView), "alignof mismatch for StringView");
+static_assert(offsetof(StringView, data) == offsetof(WGPUStringView, data),
+        "offsetof mismatch for StringView::data");
+static_assert(offsetof(StringView, length) == offsetof(WGPUStringView, length),
+        "offsetof mismatch for StringView::length");
 
 // SurfaceCapabilities implementation
 SurfaceCapabilities::SurfaceCapabilities() = default;
@@ -7529,6 +8066,9 @@ static_assert(alignof(Adapter) == alignof(WGPUAdapter), "alignof mismatch for Ad
 void BindGroup::SetLabel(char const * label) const {
     wgpuBindGroupSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void BindGroup::SetLabel(NullableStringView label) const {
+    wgpuBindGroupSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 
 
 void BindGroup::WGPUAddRef(WGPUBindGroup handle) {
@@ -7548,6 +8088,9 @@ static_assert(alignof(BindGroup) == alignof(WGPUBindGroup), "alignof mismatch fo
 
 void BindGroupLayout::SetLabel(char const * label) const {
     wgpuBindGroupLayoutSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void BindGroupLayout::SetLabel(NullableStringView label) const {
+    wgpuBindGroupLayoutSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -7651,6 +8194,9 @@ Future Buffer::MapAsync(MapMode mode, size_t offset, size_t size, BufferMapCallb
 void Buffer::SetLabel(char const * label) const {
     wgpuBufferSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void Buffer::SetLabel(NullableStringView label) const {
+    wgpuBufferSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 void Buffer::Unmap() const {
     wgpuBufferUnmap(Get());
 }
@@ -7673,6 +8219,9 @@ static_assert(alignof(Buffer) == alignof(WGPUBuffer), "alignof mismatch for Buff
 
 void CommandBuffer::SetLabel(char const * label) const {
     wgpuCommandBufferSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void CommandBuffer::SetLabel(NullableStringView label) const {
+    wgpuCommandBufferSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -7721,8 +8270,14 @@ CommandBuffer CommandEncoder::Finish(CommandBufferDescriptor const * descriptor)
 void CommandEncoder::InjectValidationError(char const * message) const {
     wgpuCommandEncoderInjectValidationError(Get(), reinterpret_cast<char const * >(message));
 }
+void CommandEncoder::InjectValidationError(StringView message) const {
+    wgpuCommandEncoderInjectValidationError2(Get(), *reinterpret_cast<WGPUStringView const*>(&message));
+}
 void CommandEncoder::InsertDebugMarker(char const * markerLabel) const {
     wgpuCommandEncoderInsertDebugMarker(Get(), reinterpret_cast<char const * >(markerLabel));
+}
+void CommandEncoder::InsertDebugMarker(StringView markerLabel) const {
+    wgpuCommandEncoderInsertDebugMarker2(Get(), *reinterpret_cast<WGPUStringView const*>(&markerLabel));
 }
 void CommandEncoder::PopDebugGroup() const {
     wgpuCommandEncoderPopDebugGroup(Get());
@@ -7730,11 +8285,17 @@ void CommandEncoder::PopDebugGroup() const {
 void CommandEncoder::PushDebugGroup(char const * groupLabel) const {
     wgpuCommandEncoderPushDebugGroup(Get(), reinterpret_cast<char const * >(groupLabel));
 }
+void CommandEncoder::PushDebugGroup(StringView groupLabel) const {
+    wgpuCommandEncoderPushDebugGroup2(Get(), *reinterpret_cast<WGPUStringView const*>(&groupLabel));
+}
 void CommandEncoder::ResolveQuerySet(QuerySet const& querySet, uint32_t firstQuery, uint32_t queryCount, Buffer const& destination, uint64_t destinationOffset) const {
     wgpuCommandEncoderResolveQuerySet(Get(), querySet.Get(), firstQuery, queryCount, destination.Get(), destinationOffset);
 }
 void CommandEncoder::SetLabel(char const * label) const {
     wgpuCommandEncoderSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void CommandEncoder::SetLabel(NullableStringView label) const {
+    wgpuCommandEncoderSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 void CommandEncoder::WriteBuffer(Buffer const& buffer, uint64_t bufferOffset, uint8_t const * data, uint64_t size) const {
     wgpuCommandEncoderWriteBuffer(Get(), buffer.Get(), bufferOffset, reinterpret_cast<uint8_t const * >(data), size);
@@ -7771,17 +8332,26 @@ void ComputePassEncoder::End() const {
 void ComputePassEncoder::InsertDebugMarker(char const * markerLabel) const {
     wgpuComputePassEncoderInsertDebugMarker(Get(), reinterpret_cast<char const * >(markerLabel));
 }
+void ComputePassEncoder::InsertDebugMarker(StringView markerLabel) const {
+    wgpuComputePassEncoderInsertDebugMarker2(Get(), *reinterpret_cast<WGPUStringView const*>(&markerLabel));
+}
 void ComputePassEncoder::PopDebugGroup() const {
     wgpuComputePassEncoderPopDebugGroup(Get());
 }
 void ComputePassEncoder::PushDebugGroup(char const * groupLabel) const {
     wgpuComputePassEncoderPushDebugGroup(Get(), reinterpret_cast<char const * >(groupLabel));
 }
+void ComputePassEncoder::PushDebugGroup(StringView groupLabel) const {
+    wgpuComputePassEncoderPushDebugGroup2(Get(), *reinterpret_cast<WGPUStringView const*>(&groupLabel));
+}
 void ComputePassEncoder::SetBindGroup(uint32_t groupIndex, BindGroup const& group, size_t dynamicOffsetCount, uint32_t const * dynamicOffsets) const {
     wgpuComputePassEncoderSetBindGroup(Get(), groupIndex, group.Get(), dynamicOffsetCount, reinterpret_cast<uint32_t const * >(dynamicOffsets));
 }
 void ComputePassEncoder::SetLabel(char const * label) const {
     wgpuComputePassEncoderSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void ComputePassEncoder::SetLabel(NullableStringView label) const {
+    wgpuComputePassEncoderSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 void ComputePassEncoder::SetPipeline(ComputePipeline const& pipeline) const {
     wgpuComputePassEncoderSetPipeline(Get(), pipeline.Get());
@@ -7812,6 +8382,9 @@ BindGroupLayout ComputePipeline::GetBindGroupLayout(uint32_t groupIndex) const {
 }
 void ComputePipeline::SetLabel(char const * label) const {
     wgpuComputePipelineSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void ComputePipeline::SetLabel(NullableStringView label) const {
+    wgpuComputePipelineSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -7919,6 +8492,10 @@ ExternalTexture Device::CreateErrorExternalTexture() const {
 }
 ShaderModule Device::CreateErrorShaderModule(ShaderModuleDescriptor const * descriptor, char const * errorMessage) const {
     auto result = wgpuDeviceCreateErrorShaderModule(Get(), reinterpret_cast<WGPUShaderModuleDescriptor const * >(descriptor), reinterpret_cast<char const * >(errorMessage));
+    return ShaderModule::Acquire(result);
+}
+ShaderModule Device::CreateErrorShaderModule(ShaderModuleDescriptor const * descriptor, StringView errorMessage) const {
+    auto result = wgpuDeviceCreateErrorShaderModule2(Get(), reinterpret_cast<WGPUShaderModuleDescriptor const * >(descriptor), *reinterpret_cast<WGPUStringView const*>(&errorMessage));
     return ShaderModule::Acquire(result);
 }
 Texture Device::CreateErrorTexture(TextureDescriptor const * descriptor) const {
@@ -8030,6 +8607,9 @@ size_t Device::EnumerateFeatures(FeatureName * features) const {
 void Device::ForceLoss(DeviceLostReason type, char const * message) const {
     wgpuDeviceForceLoss(Get(), static_cast<WGPUDeviceLostReason>(type), reinterpret_cast<char const * >(message));
 }
+void Device::ForceLoss(DeviceLostReason type, StringView message) const {
+    wgpuDeviceForceLoss2(Get(), static_cast<WGPUDeviceLostReason>(type), *reinterpret_cast<WGPUStringView const*>(&message));
+}
 ConvertibleStatus Device::GetAHardwareBufferProperties(void * handle, AHardwareBufferProperties * properties) const {
     auto result = wgpuDeviceGetAHardwareBufferProperties(Get(), handle, reinterpret_cast<WGPUAHardwareBufferProperties * >(properties));
     return static_cast<Status>(result);
@@ -8068,6 +8648,9 @@ SharedTextureMemory Device::ImportSharedTextureMemory(SharedTextureMemoryDescrip
 }
 void Device::InjectError(ErrorType type, char const * message) const {
     wgpuDeviceInjectError(Get(), static_cast<WGPUErrorType>(type), reinterpret_cast<char const * >(message));
+}
+void Device::InjectError(ErrorType type, StringView message) const {
+    wgpuDeviceInjectError2(Get(), static_cast<WGPUErrorType>(type), *reinterpret_cast<WGPUStringView const*>(&message));
 }
 void Device::PopErrorScope(ErrorCallback oldCallback, void * userdata) const {
     wgpuDevicePopErrorScope(Get(), oldCallback, userdata);
@@ -8137,6 +8720,9 @@ void Device::SetDeviceLostCallback(DeviceLostCallback callback, void * userdata)
 void Device::SetLabel(char const * label) const {
     wgpuDeviceSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void Device::SetLabel(NullableStringView label) const {
+    wgpuDeviceSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 void Device::SetLoggingCallback(LoggingCallback callback, void * userdata) const {
     wgpuDeviceSetLoggingCallback(Get(), callback, userdata);
 }
@@ -8177,6 +8763,9 @@ void ExternalTexture::Refresh() const {
 }
 void ExternalTexture::SetLabel(char const * label) const {
     wgpuExternalTextureSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void ExternalTexture::SetLabel(NullableStringView label) const {
+    wgpuExternalTextureSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -8297,6 +8886,9 @@ static_assert(alignof(Instance) == alignof(WGPUInstance), "alignof mismatch for 
 void PipelineLayout::SetLabel(char const * label) const {
     wgpuPipelineLayoutSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void PipelineLayout::SetLabel(NullableStringView label) const {
+    wgpuPipelineLayoutSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 
 
 void PipelineLayout::WGPUAddRef(WGPUPipelineLayout handle) {
@@ -8327,6 +8919,9 @@ QueryType QuerySet::GetType() const {
 }
 void QuerySet::SetLabel(char const * label) const {
     wgpuQuerySetSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void QuerySet::SetLabel(NullableStringView label) const {
+    wgpuQuerySetSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -8413,6 +9008,9 @@ Future Queue::OnSubmittedWorkDone(QueueWorkDoneCallbackInfo callbackInfo) const 
 void Queue::SetLabel(char const * label) const {
     wgpuQueueSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void Queue::SetLabel(NullableStringView label) const {
+    wgpuQueueSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 void Queue::Submit(size_t commandCount, CommandBuffer const * commands) const {
     wgpuQueueSubmit(Get(), commandCount, reinterpret_cast<WGPUCommandBuffer const * >(commands));
 }
@@ -8441,6 +9039,9 @@ static_assert(alignof(Queue) == alignof(WGPUQueue), "alignof mismatch for Queue"
 
 void RenderBundle::SetLabel(char const * label) const {
     wgpuRenderBundleSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void RenderBundle::SetLabel(NullableStringView label) const {
+    wgpuRenderBundleSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -8478,11 +9079,17 @@ RenderBundle RenderBundleEncoder::Finish(RenderBundleDescriptor const * descript
 void RenderBundleEncoder::InsertDebugMarker(char const * markerLabel) const {
     wgpuRenderBundleEncoderInsertDebugMarker(Get(), reinterpret_cast<char const * >(markerLabel));
 }
+void RenderBundleEncoder::InsertDebugMarker(StringView markerLabel) const {
+    wgpuRenderBundleEncoderInsertDebugMarker2(Get(), *reinterpret_cast<WGPUStringView const*>(&markerLabel));
+}
 void RenderBundleEncoder::PopDebugGroup() const {
     wgpuRenderBundleEncoderPopDebugGroup(Get());
 }
 void RenderBundleEncoder::PushDebugGroup(char const * groupLabel) const {
     wgpuRenderBundleEncoderPushDebugGroup(Get(), reinterpret_cast<char const * >(groupLabel));
+}
+void RenderBundleEncoder::PushDebugGroup(StringView groupLabel) const {
+    wgpuRenderBundleEncoderPushDebugGroup2(Get(), *reinterpret_cast<WGPUStringView const*>(&groupLabel));
 }
 void RenderBundleEncoder::SetBindGroup(uint32_t groupIndex, BindGroup const& group, size_t dynamicOffsetCount, uint32_t const * dynamicOffsets) const {
     wgpuRenderBundleEncoderSetBindGroup(Get(), groupIndex, group.Get(), dynamicOffsetCount, reinterpret_cast<uint32_t const * >(dynamicOffsets));
@@ -8492,6 +9099,9 @@ void RenderBundleEncoder::SetIndexBuffer(Buffer const& buffer, IndexFormat forma
 }
 void RenderBundleEncoder::SetLabel(char const * label) const {
     wgpuRenderBundleEncoderSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void RenderBundleEncoder::SetLabel(NullableStringView label) const {
+    wgpuRenderBundleEncoderSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 void RenderBundleEncoder::SetPipeline(RenderPipeline const& pipeline) const {
     wgpuRenderBundleEncoderSetPipeline(Get(), pipeline.Get());
@@ -8543,6 +9153,15 @@ void RenderPassEncoder::ExecuteBundles(size_t bundleCount, RenderBundle const * 
 void RenderPassEncoder::InsertDebugMarker(char const * markerLabel) const {
     wgpuRenderPassEncoderInsertDebugMarker(Get(), reinterpret_cast<char const * >(markerLabel));
 }
+void RenderPassEncoder::InsertDebugMarker(StringView markerLabel) const {
+    wgpuRenderPassEncoderInsertDebugMarker2(Get(), *reinterpret_cast<WGPUStringView const*>(&markerLabel));
+}
+void RenderPassEncoder::MultiDrawIndexedIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset) const {
+    wgpuRenderPassEncoderMultiDrawIndexedIndirect(Get(), indirectBuffer.Get(), indirectOffset, maxDrawCount, drawCountBuffer.Get(), drawCountBufferOffset);
+}
+void RenderPassEncoder::MultiDrawIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset) const {
+    wgpuRenderPassEncoderMultiDrawIndirect(Get(), indirectBuffer.Get(), indirectOffset, maxDrawCount, drawCountBuffer.Get(), drawCountBufferOffset);
+}
 void RenderPassEncoder::PixelLocalStorageBarrier() const {
     wgpuRenderPassEncoderPixelLocalStorageBarrier(Get());
 }
@@ -8551,6 +9170,9 @@ void RenderPassEncoder::PopDebugGroup() const {
 }
 void RenderPassEncoder::PushDebugGroup(char const * groupLabel) const {
     wgpuRenderPassEncoderPushDebugGroup(Get(), reinterpret_cast<char const * >(groupLabel));
+}
+void RenderPassEncoder::PushDebugGroup(StringView groupLabel) const {
+    wgpuRenderPassEncoderPushDebugGroup2(Get(), *reinterpret_cast<WGPUStringView const*>(&groupLabel));
 }
 void RenderPassEncoder::SetBindGroup(uint32_t groupIndex, BindGroup const& group, size_t dynamicOffsetCount, uint32_t const * dynamicOffsets) const {
     wgpuRenderPassEncoderSetBindGroup(Get(), groupIndex, group.Get(), dynamicOffsetCount, reinterpret_cast<uint32_t const * >(dynamicOffsets));
@@ -8563,6 +9185,9 @@ void RenderPassEncoder::SetIndexBuffer(Buffer const& buffer, IndexFormat format,
 }
 void RenderPassEncoder::SetLabel(char const * label) const {
     wgpuRenderPassEncoderSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void RenderPassEncoder::SetLabel(NullableStringView label) const {
+    wgpuRenderPassEncoderSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 void RenderPassEncoder::SetPipeline(RenderPipeline const& pipeline) const {
     wgpuRenderPassEncoderSetPipeline(Get(), pipeline.Get());
@@ -8606,6 +9231,9 @@ BindGroupLayout RenderPipeline::GetBindGroupLayout(uint32_t groupIndex) const {
 void RenderPipeline::SetLabel(char const * label) const {
     wgpuRenderPipelineSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void RenderPipeline::SetLabel(NullableStringView label) const {
+    wgpuRenderPipelineSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 
 
 void RenderPipeline::WGPUAddRef(WGPURenderPipeline handle) {
@@ -8625,6 +9253,9 @@ static_assert(alignof(RenderPipeline) == alignof(WGPURenderPipeline), "alignof m
 
 void Sampler::SetLabel(char const * label) const {
     wgpuSamplerSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void Sampler::SetLabel(NullableStringView label) const {
+    wgpuSamplerSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -8705,6 +9336,9 @@ Future ShaderModule::GetCompilationInfo(CompilationInfoCallbackInfo callbackInfo
 void ShaderModule::SetLabel(char const * label) const {
     wgpuShaderModuleSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void ShaderModule::SetLabel(NullableStringView label) const {
+    wgpuShaderModuleSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 
 
 void ShaderModule::WGPUAddRef(WGPUShaderModule handle) {
@@ -8745,6 +9379,9 @@ Bool SharedBufferMemory::IsDeviceLost() const {
 }
 void SharedBufferMemory::SetLabel(char const * label) const {
     wgpuSharedBufferMemorySetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void SharedBufferMemory::SetLabel(NullableStringView label) const {
+    wgpuSharedBufferMemorySetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -8807,6 +9444,9 @@ Bool SharedTextureMemory::IsDeviceLost() const {
 void SharedTextureMemory::SetLabel(char const * label) const {
     wgpuSharedTextureMemorySetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void SharedTextureMemory::SetLabel(NullableStringView label) const {
+    wgpuSharedTextureMemorySetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 
 
 void SharedTextureMemory::WGPUAddRef(WGPUSharedTextureMemory handle) {
@@ -8841,6 +9481,12 @@ TextureFormat Surface::GetPreferredFormat(Adapter const& adapter) const {
 }
 void Surface::Present() const {
     wgpuSurfacePresent(Get());
+}
+void Surface::SetLabel(char const * label) const {
+    wgpuSurfaceSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void Surface::SetLabel(NullableStringView label) const {
+    wgpuSurfaceSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 void Surface::Unconfigure() const {
     wgpuSurfaceUnconfigure(Get());
@@ -8936,6 +9582,9 @@ uint32_t Texture::GetWidth() const {
 void Texture::SetLabel(char const * label) const {
     wgpuTextureSetLabel(Get(), reinterpret_cast<char const * >(label));
 }
+void Texture::SetLabel(NullableStringView label) const {
+    wgpuTextureSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
+}
 
 
 void Texture::WGPUAddRef(WGPUTexture handle) {
@@ -8955,6 +9604,9 @@ static_assert(alignof(Texture) == alignof(WGPUTexture), "alignof mismatch for Te
 
 void TextureView::SetLabel(char const * label) const {
     wgpuTextureViewSetLabel(Get(), reinterpret_cast<char const * >(label));
+}
+void TextureView::SetLabel(NullableStringView label) const {
+    wgpuTextureViewSetLabel2(Get(), *reinterpret_cast<WGPUStringView const*>(&label));
 }
 
 
@@ -8985,6 +9637,10 @@ static inline Status GetInstanceFeatures(InstanceFeatures * features) {
 }
 static inline Proc GetProcAddress(Device device, char const * procName) {
     auto result = wgpuGetProcAddress(device.Get(), reinterpret_cast<char const * >(procName));
+    return reinterpret_cast<Proc>(result);
+}
+static inline Proc GetProcAddress(Device device, StringView procName) {
+    auto result = wgpuGetProcAddress2(device.Get(), *reinterpret_cast<WGPUStringView const*>(&procName));
     return reinterpret_cast<Proc>(result);
 }
 
@@ -9030,6 +9686,13 @@ struct hash<wgpu::Bool> {
   public:
     size_t operator()(const wgpu::Bool &v) const {
         return hash<bool>()(v);
+    }
+};
+template <>
+struct hash<wgpu::OptionalBool> {
+  public:
+    size_t operator()(const wgpu::OptionalBool &v) const {
+        return hash<WGPUOptionalBool>()(v.mValue);
     }
 };
 }  // namespace std

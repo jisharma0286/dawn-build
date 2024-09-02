@@ -162,7 +162,6 @@ struct WGPUDawnShaderModuleSPIRVOptionsDescriptor;
 struct WGPUDawnTextureInternalUsageDescriptor;
 struct WGPUDawnTogglesDescriptor;
 struct WGPUDawnWireWGSLControl;
-struct WGPUDepthStencilStateDepthWriteDefinedDawn;
 struct WGPUDeviceLostCallbackInfo;
 struct WGPUDrmFormatProperties;
 struct WGPUExtent2D;
@@ -188,6 +187,7 @@ struct WGPUQueueWorkDoneCallbackInfo;
 struct WGPURenderBundleDescriptor;
 struct WGPURenderBundleEncoderDescriptor;
 struct WGPURenderPassDepthStencilAttachment;
+struct WGPURenderPassDescriptorExpandResolveRect;
 struct WGPURenderPassDescriptorMaxDrawCount;
 struct WGPURenderPassTimestampWrites;
 struct WGPURequestAdapterCallbackInfo;
@@ -423,11 +423,11 @@ typedef enum WGPUCompilationMessageType {
     WGPUCompilationMessageType_Force32 = 0x7FFFFFFF
 } WGPUCompilationMessageType WGPU_ENUM_ATTRIBUTE;
 typedef enum WGPUCompositeAlphaMode {
-    WGPUCompositeAlphaMode_Auto = 0x00000001,
-    WGPUCompositeAlphaMode_Opaque = 0x00000002,
-    WGPUCompositeAlphaMode_Premultiplied = 0x00000003,
-    WGPUCompositeAlphaMode_Unpremultiplied = 0x00000004,
-    WGPUCompositeAlphaMode_Inherit = 0x00000005,
+    WGPUCompositeAlphaMode_Auto = 0x00000000,
+    WGPUCompositeAlphaMode_Opaque = 0x00000001,
+    WGPUCompositeAlphaMode_Premultiplied = 0x00000002,
+    WGPUCompositeAlphaMode_Unpremultiplied = 0x00000003,
+    WGPUCompositeAlphaMode_Inherit = 0x00000004,
     WGPUCompositeAlphaMode_Force32 = 0x7FFFFFFF
 } WGPUCompositeAlphaMode WGPU_ENUM_ATTRIBUTE;
 typedef enum WGPUCreatePipelineAsyncStatus {
@@ -544,6 +544,9 @@ typedef enum WGPUFeatureName {
     WGPUFeatureName_YCbCrVulkanSamplers = 0x00050033,
     WGPUFeatureName_ShaderModuleCompilationOptions = 0x00050034,
     WGPUFeatureName_DawnLoadResolveTexture = 0x00050035,
+    WGPUFeatureName_DawnPartialLoadResolveTexture = 0x00050036,
+    WGPUFeatureName_MultiDrawIndirect = 0x00050037,
+    WGPUFeatureName_ClipDistances = 0x00050038,
     WGPUFeatureName_Force32 = 0x7FFFFFFF
 } WGPUFeatureName WGPU_ENUM_ATTRIBUTE;
 typedef enum WGPUFilterMode {
@@ -592,6 +595,12 @@ typedef enum WGPUMipmapFilterMode {
     WGPUMipmapFilterMode_Linear = 0x00000002,
     WGPUMipmapFilterMode_Force32 = 0x7FFFFFFF
 } WGPUMipmapFilterMode WGPU_ENUM_ATTRIBUTE;
+typedef enum WGPUOptionalBool {
+    WGPUOptionalBool_False = 0x00000000,
+    WGPUOptionalBool_True = 0x00000001,
+    WGPUOptionalBool_Undefined = 0x00000002,
+    WGPUOptionalBool_Force32 = 0x7FFFFFFF
+} WGPUOptionalBool WGPU_ENUM_ATTRIBUTE;
 typedef enum WGPUPopErrorScopeStatus {
     WGPUPopErrorScopeStatus_Success = 0x00000001,
     WGPUPopErrorScopeStatus_InstanceDropped = 0x00000002,
@@ -652,6 +661,7 @@ typedef enum WGPUSType {
     WGPUSType_ShaderModuleWGSLDescriptor = 0x00000002,
     WGPUSType_PrimitiveDepthClipControl = 0x00000003,
     WGPUSType_RenderPassDescriptorMaxDrawCount = 0x00000004,
+    WGPUSType_RenderPassDescriptorExpandResolveRect = 0x00000005,
     WGPUSType_TextureBindingViewDimensionDescriptor = 0x00020000,
     WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector = 0x00040000,
     WGPUSType_SurfaceDescriptorFromMetalLayer = 0x00010000,
@@ -664,61 +674,60 @@ typedef enum WGPUSType {
     WGPUSType_ExternalTextureBindingEntry = 0x00050001,
     WGPUSType_ExternalTextureBindingLayout = 0x00050002,
     WGPUSType_SurfaceDescriptorFromWindowsSwapChainPanel = 0x00050003,
-    WGPUSType_DepthStencilStateDepthWriteDefinedDawn = 0x00050004,
-    WGPUSType_DawnTextureInternalUsageDescriptor = 0x00050005,
-    WGPUSType_DawnEncoderInternalUsageDescriptor = 0x00050006,
-    WGPUSType_DawnInstanceDescriptor = 0x00050007,
-    WGPUSType_DawnCacheDeviceDescriptor = 0x00050008,
-    WGPUSType_DawnAdapterPropertiesPowerPreference = 0x00050009,
-    WGPUSType_DawnBufferDescriptorErrorInfoFromWireClient = 0x0005000A,
-    WGPUSType_DawnTogglesDescriptor = 0x0005000B,
-    WGPUSType_DawnShaderModuleSPIRVOptionsDescriptor = 0x0005000C,
-    WGPUSType_RequestAdapterOptionsLUID = 0x0005000D,
-    WGPUSType_RequestAdapterOptionsGetGLProc = 0x0005000E,
-    WGPUSType_RequestAdapterOptionsD3D11Device = 0x0005000F,
-    WGPUSType_DawnRenderPassColorAttachmentRenderToSingleSampled = 0x00050010,
-    WGPUSType_RenderPassPixelLocalStorage = 0x00050011,
-    WGPUSType_PipelineLayoutPixelLocalStorage = 0x00050012,
-    WGPUSType_BufferHostMappedPointer = 0x00050013,
-    WGPUSType_DawnExperimentalSubgroupLimits = 0x00050014,
-    WGPUSType_AdapterPropertiesMemoryHeaps = 0x00050015,
-    WGPUSType_AdapterPropertiesD3D = 0x00050016,
-    WGPUSType_AdapterPropertiesVk = 0x00050017,
-    WGPUSType_DawnComputePipelineFullSubgroups = 0x00050018,
-    WGPUSType_DawnWireWGSLControl = 0x00050019,
-    WGPUSType_DawnWGSLBlocklist = 0x0005001A,
-    WGPUSType_DrmFormatCapabilities = 0x0005001B,
-    WGPUSType_ShaderModuleCompilationOptions = 0x0005001C,
-    WGPUSType_ColorTargetStateExpandResolveTextureDawn = 0x0005001D,
-    WGPUSType_SharedTextureMemoryVkDedicatedAllocationDescriptor = 0x0005001E,
-    WGPUSType_SharedTextureMemoryAHardwareBufferDescriptor = 0x0005001F,
-    WGPUSType_SharedTextureMemoryDmaBufDescriptor = 0x00050020,
-    WGPUSType_SharedTextureMemoryOpaqueFDDescriptor = 0x00050021,
-    WGPUSType_SharedTextureMemoryZirconHandleDescriptor = 0x00050022,
-    WGPUSType_SharedTextureMemoryDXGISharedHandleDescriptor = 0x00050023,
-    WGPUSType_SharedTextureMemoryD3D11Texture2DDescriptor = 0x00050024,
-    WGPUSType_SharedTextureMemoryIOSurfaceDescriptor = 0x00050025,
-    WGPUSType_SharedTextureMemoryEGLImageDescriptor = 0x00050026,
-    WGPUSType_SharedTextureMemoryInitializedBeginState = 0x00050027,
-    WGPUSType_SharedTextureMemoryInitializedEndState = 0x00050028,
-    WGPUSType_SharedTextureMemoryVkImageLayoutBeginState = 0x00050029,
-    WGPUSType_SharedTextureMemoryVkImageLayoutEndState = 0x0005002A,
-    WGPUSType_SharedTextureMemoryD3DSwapchainBeginState = 0x0005002B,
-    WGPUSType_SharedFenceVkSemaphoreOpaqueFDDescriptor = 0x0005002C,
-    WGPUSType_SharedFenceVkSemaphoreOpaqueFDExportInfo = 0x0005002D,
-    WGPUSType_SharedFenceVkSemaphoreSyncFDDescriptor = 0x0005002E,
-    WGPUSType_SharedFenceVkSemaphoreSyncFDExportInfo = 0x0005002F,
-    WGPUSType_SharedFenceVkSemaphoreZirconHandleDescriptor = 0x00050030,
-    WGPUSType_SharedFenceVkSemaphoreZirconHandleExportInfo = 0x00050031,
-    WGPUSType_SharedFenceDXGISharedHandleDescriptor = 0x00050032,
-    WGPUSType_SharedFenceDXGISharedHandleExportInfo = 0x00050033,
-    WGPUSType_SharedFenceMTLSharedEventDescriptor = 0x00050034,
-    WGPUSType_SharedFenceMTLSharedEventExportInfo = 0x00050035,
-    WGPUSType_SharedBufferMemoryD3D12ResourceDescriptor = 0x00050036,
-    WGPUSType_StaticSamplerBindingLayout = 0x00050037,
-    WGPUSType_YCbCrVkDescriptor = 0x00050038,
-    WGPUSType_SharedTextureMemoryAHardwareBufferProperties = 0x00050039,
-    WGPUSType_AHardwareBufferProperties = 0x0005003A,
+    WGPUSType_DawnTextureInternalUsageDescriptor = 0x00050004,
+    WGPUSType_DawnEncoderInternalUsageDescriptor = 0x00050005,
+    WGPUSType_DawnInstanceDescriptor = 0x00050006,
+    WGPUSType_DawnCacheDeviceDescriptor = 0x00050007,
+    WGPUSType_DawnAdapterPropertiesPowerPreference = 0x00050008,
+    WGPUSType_DawnBufferDescriptorErrorInfoFromWireClient = 0x00050009,
+    WGPUSType_DawnTogglesDescriptor = 0x0005000A,
+    WGPUSType_DawnShaderModuleSPIRVOptionsDescriptor = 0x0005000B,
+    WGPUSType_RequestAdapterOptionsLUID = 0x0005000C,
+    WGPUSType_RequestAdapterOptionsGetGLProc = 0x0005000D,
+    WGPUSType_RequestAdapterOptionsD3D11Device = 0x0005000E,
+    WGPUSType_DawnRenderPassColorAttachmentRenderToSingleSampled = 0x0005000F,
+    WGPUSType_RenderPassPixelLocalStorage = 0x00050010,
+    WGPUSType_PipelineLayoutPixelLocalStorage = 0x00050011,
+    WGPUSType_BufferHostMappedPointer = 0x00050012,
+    WGPUSType_DawnExperimentalSubgroupLimits = 0x00050013,
+    WGPUSType_AdapterPropertiesMemoryHeaps = 0x00050014,
+    WGPUSType_AdapterPropertiesD3D = 0x00050015,
+    WGPUSType_AdapterPropertiesVk = 0x00050016,
+    WGPUSType_DawnComputePipelineFullSubgroups = 0x00050017,
+    WGPUSType_DawnWireWGSLControl = 0x00050018,
+    WGPUSType_DawnWGSLBlocklist = 0x00050019,
+    WGPUSType_DrmFormatCapabilities = 0x0005001A,
+    WGPUSType_ShaderModuleCompilationOptions = 0x0005001B,
+    WGPUSType_ColorTargetStateExpandResolveTextureDawn = 0x0005001C,
+    WGPUSType_SharedTextureMemoryVkDedicatedAllocationDescriptor = 0x0005001D,
+    WGPUSType_SharedTextureMemoryAHardwareBufferDescriptor = 0x0005001E,
+    WGPUSType_SharedTextureMemoryDmaBufDescriptor = 0x0005001F,
+    WGPUSType_SharedTextureMemoryOpaqueFDDescriptor = 0x00050020,
+    WGPUSType_SharedTextureMemoryZirconHandleDescriptor = 0x00050021,
+    WGPUSType_SharedTextureMemoryDXGISharedHandleDescriptor = 0x00050022,
+    WGPUSType_SharedTextureMemoryD3D11Texture2DDescriptor = 0x00050023,
+    WGPUSType_SharedTextureMemoryIOSurfaceDescriptor = 0x00050024,
+    WGPUSType_SharedTextureMemoryEGLImageDescriptor = 0x00050025,
+    WGPUSType_SharedTextureMemoryInitializedBeginState = 0x00050026,
+    WGPUSType_SharedTextureMemoryInitializedEndState = 0x00050027,
+    WGPUSType_SharedTextureMemoryVkImageLayoutBeginState = 0x00050028,
+    WGPUSType_SharedTextureMemoryVkImageLayoutEndState = 0x00050029,
+    WGPUSType_SharedTextureMemoryD3DSwapchainBeginState = 0x0005002A,
+    WGPUSType_SharedFenceVkSemaphoreOpaqueFDDescriptor = 0x0005002B,
+    WGPUSType_SharedFenceVkSemaphoreOpaqueFDExportInfo = 0x0005002C,
+    WGPUSType_SharedFenceVkSemaphoreSyncFDDescriptor = 0x0005002D,
+    WGPUSType_SharedFenceVkSemaphoreSyncFDExportInfo = 0x0005002E,
+    WGPUSType_SharedFenceVkSemaphoreZirconHandleDescriptor = 0x0005002F,
+    WGPUSType_SharedFenceVkSemaphoreZirconHandleExportInfo = 0x00050030,
+    WGPUSType_SharedFenceDXGISharedHandleDescriptor = 0x00050031,
+    WGPUSType_SharedFenceDXGISharedHandleExportInfo = 0x00050032,
+    WGPUSType_SharedFenceMTLSharedEventDescriptor = 0x00050033,
+    WGPUSType_SharedFenceMTLSharedEventExportInfo = 0x00050034,
+    WGPUSType_SharedBufferMemoryD3D12ResourceDescriptor = 0x00050035,
+    WGPUSType_StaticSamplerBindingLayout = 0x00050036,
+    WGPUSType_YCbCrVkDescriptor = 0x00050037,
+    WGPUSType_SharedTextureMemoryAHardwareBufferProperties = 0x00050038,
+    WGPUSType_AHardwareBufferProperties = 0x00050039,
     WGPUSType_Force32 = 0x7FFFFFFF
 } WGPUSType WGPU_ENUM_ATTRIBUTE;
 typedef enum WGPUSamplerBindingType {
@@ -1709,17 +1718,6 @@ typedef struct WGPUDawnWireWGSLControl {
     /*.enableTesting=*/false WGPU_COMMA \
 })
 
-// Can be chained in WGPUDepthStencilState
-typedef struct WGPUDepthStencilStateDepthWriteDefinedDawn {
-    WGPUChainedStruct chain;
-    WGPUBool depthWriteDefined;
-} WGPUDepthStencilStateDepthWriteDefinedDawn WGPU_STRUCTURE_ATTRIBUTE;
-
-#define WGPU_DEPTH_STENCIL_STATE_DEPTH_WRITE_DEFINED_DAWN_INIT WGPU_MAKE_INIT_STRUCT(WGPUDepthStencilStateDepthWriteDefinedDawn, { \
-    /*.chain=*/{} WGPU_COMMA \
-    /*.depthWriteDefined=*/{} WGPU_COMMA \
-})
-
 typedef struct WGPUDeviceLostCallbackInfo {
     WGPUChainedStruct const * nextInChain;
     WGPUCallbackMode mode;
@@ -2093,6 +2091,23 @@ typedef struct WGPURenderPassDepthStencilAttachment {
     /*.stencilStoreOp=*/WGPUStoreOp_Undefined WGPU_COMMA \
     /*.stencilClearValue=*/0 WGPU_COMMA \
     /*.stencilReadOnly=*/false WGPU_COMMA \
+})
+
+// Can be chained in WGPURenderPassDescriptor
+typedef struct WGPURenderPassDescriptorExpandResolveRect {
+    WGPUChainedStruct chain;
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+} WGPURenderPassDescriptorExpandResolveRect WGPU_STRUCTURE_ATTRIBUTE;
+
+#define WGPU_RENDER_PASS_DESCRIPTOR_EXPAND_RESOLVE_RECT_INIT WGPU_MAKE_INIT_STRUCT(WGPURenderPassDescriptorExpandResolveRect, { \
+    /*.chain=*/{} WGPU_COMMA \
+    /*.x=*/{} WGPU_COMMA \
+    /*.y=*/{} WGPU_COMMA \
+    /*.width=*/{} WGPU_COMMA \
+    /*.height=*/{} WGPU_COMMA \
 })
 
 // Can be chained in WGPURenderPassDescriptor
@@ -3081,7 +3096,7 @@ typedef struct WGPUComputePassDescriptor {
 typedef struct WGPUDepthStencilState {
     WGPUChainedStruct const * nextInChain;
     WGPUTextureFormat format;
-    WGPUBool depthWriteEnabled;
+    WGPUOptionalBool depthWriteEnabled;
     WGPUCompareFunction depthCompare;
     WGPUStencilFaceState stencilFront;
     WGPUStencilFaceState stencilBack;
@@ -3095,7 +3110,7 @@ typedef struct WGPUDepthStencilState {
 #define WGPU_DEPTH_STENCIL_STATE_INIT WGPU_MAKE_INIT_STRUCT(WGPUDepthStencilState, { \
     /*.nextInChain=*/nullptr WGPU_COMMA \
     /*.format=*/{} WGPU_COMMA \
-    /*.depthWriteEnabled=*/false WGPU_COMMA \
+    /*.depthWriteEnabled=*/WGPUOptionalBool_Undefined WGPU_COMMA \
     /*.depthCompare=*/WGPUCompareFunction_Undefined WGPU_COMMA \
     /*.stencilFront=*/WGPU_STENCIL_FACE_STATE_INIT WGPU_COMMA \
     /*.stencilBack=*/WGPU_STENCIL_FACE_STATE_INIT WGPU_COMMA \
@@ -3808,6 +3823,8 @@ typedef void (*WGPUProcRenderPassEncoderEndOcclusionQuery)(WGPURenderPassEncoder
 typedef void (*WGPUProcRenderPassEncoderExecuteBundles)(WGPURenderPassEncoder renderPassEncoder, size_t bundleCount, WGPURenderBundle const * bundles) WGPU_FUNCTION_ATTRIBUTE;
 typedef void (*WGPUProcRenderPassEncoderInsertDebugMarker)(WGPURenderPassEncoder renderPassEncoder, char const * markerLabel) WGPU_FUNCTION_ATTRIBUTE;
 typedef void (*WGPUProcRenderPassEncoderInsertDebugMarker2)(WGPURenderPassEncoder renderPassEncoder, WGPUStringView markerLabel) WGPU_FUNCTION_ATTRIBUTE;
+typedef void (*WGPUProcRenderPassEncoderMultiDrawIndexedIndirect)(WGPURenderPassEncoder renderPassEncoder, WGPUBuffer indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, WGPU_NULLABLE WGPUBuffer drawCountBuffer, uint64_t drawCountBufferOffset) WGPU_FUNCTION_ATTRIBUTE;
+typedef void (*WGPUProcRenderPassEncoderMultiDrawIndirect)(WGPURenderPassEncoder renderPassEncoder, WGPUBuffer indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, WGPU_NULLABLE WGPUBuffer drawCountBuffer, uint64_t drawCountBufferOffset) WGPU_FUNCTION_ATTRIBUTE;
 typedef void (*WGPUProcRenderPassEncoderPixelLocalStorageBarrier)(WGPURenderPassEncoder renderPassEncoder) WGPU_FUNCTION_ATTRIBUTE;
 typedef void (*WGPUProcRenderPassEncoderPopDebugGroup)(WGPURenderPassEncoder renderPassEncoder) WGPU_FUNCTION_ATTRIBUTE;
 typedef void (*WGPUProcRenderPassEncoderPushDebugGroup)(WGPURenderPassEncoder renderPassEncoder, char const * groupLabel) WGPU_FUNCTION_ATTRIBUTE;
@@ -4173,6 +4190,8 @@ WGPU_EXPORT void wgpuRenderPassEncoderEndOcclusionQuery(WGPURenderPassEncoder re
 WGPU_EXPORT void wgpuRenderPassEncoderExecuteBundles(WGPURenderPassEncoder renderPassEncoder, size_t bundleCount, WGPURenderBundle const * bundles) WGPU_FUNCTION_ATTRIBUTE;
 WGPU_EXPORT void wgpuRenderPassEncoderInsertDebugMarker(WGPURenderPassEncoder renderPassEncoder, char const * markerLabel) WGPU_FUNCTION_ATTRIBUTE;
 WGPU_EXPORT void wgpuRenderPassEncoderInsertDebugMarker2(WGPURenderPassEncoder renderPassEncoder, WGPUStringView markerLabel) WGPU_FUNCTION_ATTRIBUTE;
+WGPU_EXPORT void wgpuRenderPassEncoderMultiDrawIndexedIndirect(WGPURenderPassEncoder renderPassEncoder, WGPUBuffer indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, WGPU_NULLABLE WGPUBuffer drawCountBuffer, uint64_t drawCountBufferOffset) WGPU_FUNCTION_ATTRIBUTE;
+WGPU_EXPORT void wgpuRenderPassEncoderMultiDrawIndirect(WGPURenderPassEncoder renderPassEncoder, WGPUBuffer indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, WGPU_NULLABLE WGPUBuffer drawCountBuffer, uint64_t drawCountBufferOffset) WGPU_FUNCTION_ATTRIBUTE;
 WGPU_EXPORT void wgpuRenderPassEncoderPixelLocalStorageBarrier(WGPURenderPassEncoder renderPassEncoder) WGPU_FUNCTION_ATTRIBUTE;
 WGPU_EXPORT void wgpuRenderPassEncoderPopDebugGroup(WGPURenderPassEncoder renderPassEncoder) WGPU_FUNCTION_ATTRIBUTE;
 WGPU_EXPORT void wgpuRenderPassEncoderPushDebugGroup(WGPURenderPassEncoder renderPassEncoder, char const * groupLabel) WGPU_FUNCTION_ATTRIBUTE;

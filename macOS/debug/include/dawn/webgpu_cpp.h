@@ -366,6 +366,9 @@ enum class FeatureName : uint32_t {
     YCbCrVulkanSamplers = WGPUFeatureName_YCbCrVulkanSamplers,
     ShaderModuleCompilationOptions = WGPUFeatureName_ShaderModuleCompilationOptions,
     DawnLoadResolveTexture = WGPUFeatureName_DawnLoadResolveTexture,
+    DawnPartialLoadResolveTexture = WGPUFeatureName_DawnPartialLoadResolveTexture,
+    MultiDrawIndirect = WGPUFeatureName_MultiDrawIndirect,
+    ClipDistances = WGPUFeatureName_ClipDistances,
 };
 static_assert(sizeof(FeatureName) == sizeof(WGPUFeatureName), "sizeof mismatch for FeatureName");
 static_assert(alignof(FeatureName) == alignof(WGPUFeatureName), "alignof mismatch for FeatureName");
@@ -506,6 +509,7 @@ enum class SType : uint32_t {
     ShaderModuleWGSLDescriptor = WGPUSType_ShaderModuleWGSLDescriptor,
     PrimitiveDepthClipControl = WGPUSType_PrimitiveDepthClipControl,
     RenderPassDescriptorMaxDrawCount = WGPUSType_RenderPassDescriptorMaxDrawCount,
+    RenderPassDescriptorExpandResolveRect = WGPUSType_RenderPassDescriptorExpandResolveRect,
     TextureBindingViewDimensionDescriptor = WGPUSType_TextureBindingViewDimensionDescriptor,
     SurfaceDescriptorFromCanvasHTMLSelector = WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
     SurfaceDescriptorFromMetalLayer = WGPUSType_SurfaceDescriptorFromMetalLayer,
@@ -518,7 +522,6 @@ enum class SType : uint32_t {
     ExternalTextureBindingEntry = WGPUSType_ExternalTextureBindingEntry,
     ExternalTextureBindingLayout = WGPUSType_ExternalTextureBindingLayout,
     SurfaceDescriptorFromWindowsSwapChainPanel = WGPUSType_SurfaceDescriptorFromWindowsSwapChainPanel,
-    DepthStencilStateDepthWriteDefinedDawn = WGPUSType_DepthStencilStateDepthWriteDefinedDawn,
     DawnTextureInternalUsageDescriptor = WGPUSType_DawnTextureInternalUsageDescriptor,
     DawnEncoderInternalUsageDescriptor = WGPUSType_DawnEncoderInternalUsageDescriptor,
     DawnInstanceDescriptor = WGPUSType_DawnInstanceDescriptor,
@@ -968,6 +971,63 @@ class Bool {
     WGPUBool mValue = static_cast<WGPUBool>(false);
 };
 
+// Special class for optional booleans in order to allow conversions.
+class OptionalBool {
+  public:
+    constexpr OptionalBool() = default;
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    constexpr OptionalBool(bool value) : mValue(static_cast<WGPUOptionalBool>(value)) {}
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    constexpr OptionalBool(std::optional<bool> value) :
+        mValue(value ? static_cast<WGPUOptionalBool>(*value) : WGPUOptionalBool_Undefined) {}
+    // NOLINTNEXTLINE(runtime/explicit) allow implicit construction
+    constexpr OptionalBool(WGPUOptionalBool value): mValue(value) {}
+
+    // Define the values that are equivalent to the enums.
+    static const OptionalBool False;
+    static const OptionalBool True;
+    static const OptionalBool Undefined;
+
+    // Assignment operators.
+    OptionalBool& operator=(const bool& value) {
+        mValue = static_cast<WGPUOptionalBool>(value);
+        return *this;
+    }
+    OptionalBool& operator=(const std::optional<bool>& value) {
+        mValue = value ? static_cast<WGPUOptionalBool>(*value) : WGPUOptionalBool_Undefined;
+        return *this;
+    }
+    OptionalBool& operator=(const WGPUOptionalBool& value) {
+        mValue = value;
+        return *this;
+    }
+
+    // Conversion functions.
+    operator WGPUOptionalBool() const { return mValue; }
+    operator std::optional<bool>() const {
+        if (mValue == WGPUOptionalBool_Undefined) {
+            return std::nullopt;
+        }
+        return static_cast<bool>(mValue);
+    }
+
+    // Comparison functions.
+    bool operator==(WGPUOptionalBool rhs) const {
+        return mValue == rhs;
+    }
+    bool operator!=(WGPUOptionalBool rhs) const {
+        return mValue != rhs;
+    }
+
+  private:
+    friend struct std::hash<OptionalBool>;
+    // Default to undefined.
+    WGPUOptionalBool mValue = WGPUOptionalBool_Undefined;
+};
+inline const OptionalBool OptionalBool::False = OptionalBool(WGPUOptionalBool_False);
+inline const OptionalBool OptionalBool::True = OptionalBool(WGPUOptionalBool_True);
+inline const OptionalBool OptionalBool::Undefined = OptionalBool(WGPUOptionalBool_Undefined);
+
 // Helper class to wrap Status which allows implicit conversion to bool.
 // Used while callers switch to checking the Status enum instead of booleans.
 // TODO(crbug.com/42241199): Remove when all callers check the enum.
@@ -1127,7 +1187,6 @@ struct DawnShaderModuleSPIRVOptionsDescriptor;
 struct DawnTextureInternalUsageDescriptor;
 struct DawnTogglesDescriptor;
 struct DawnWireWGSLControl;
-struct DepthStencilStateDepthWriteDefinedDawn;
 struct DeviceLostCallbackInfo;
 struct DrmFormatProperties;
 struct Extent2D;
@@ -1154,6 +1213,7 @@ struct QueueWorkDoneCallbackInfo;
 struct RenderBundleDescriptor;
 struct RenderBundleEncoderDescriptor;
 struct RenderPassDepthStencilAttachment;
+struct RenderPassDescriptorExpandResolveRect;
 struct RenderPassDescriptorMaxDrawCount;
 struct RenderPassTimestampWrites;
 struct RequestAdapterCallbackInfo;
@@ -1696,6 +1756,8 @@ class RenderPassEncoder : public ObjectBase<RenderPassEncoder, WGPURenderPassEnc
     inline void ExecuteBundles(size_t bundleCount, RenderBundle const * bundles) const;
     inline void InsertDebugMarker(char const * markerLabel) const;
     inline void InsertDebugMarker(StringView markerLabel) const;
+    inline void MultiDrawIndexedIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset = 0) const;
+    inline void MultiDrawIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset = 0) const;
     inline void PixelLocalStorageBarrier() const;
     inline void PopDebugGroup() const;
     inline void PushDebugGroup(char const * groupLabel) const;
@@ -2394,20 +2456,6 @@ struct DawnWireWGSLControl : ChainedStruct {
 
 };
 
-// Can be chained in DepthStencilState
-struct DepthStencilStateDepthWriteDefinedDawn : ChainedStruct {
-    inline DepthStencilStateDepthWriteDefinedDawn();
-
-    struct Init;
-    inline DepthStencilStateDepthWriteDefinedDawn(Init&& init);
-    inline operator const WGPUDepthStencilStateDepthWriteDefinedDawn&() const noexcept;
-
-    static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(Bool ));
-    alignas(kFirstMemberAlignment) Bool depthWriteDefined;
-
-
-};
-
 struct DeviceLostCallbackInfo {
     inline operator const WGPUDeviceLostCallbackInfo&() const noexcept;
 
@@ -2740,6 +2788,23 @@ struct RenderPassDepthStencilAttachment {
     StoreOp stencilStoreOp = StoreOp::Undefined;
     uint32_t stencilClearValue = 0;
     Bool stencilReadOnly = false;
+
+
+};
+
+// Can be chained in RenderPassDescriptor
+struct RenderPassDescriptorExpandResolveRect : ChainedStruct {
+    inline RenderPassDescriptorExpandResolveRect();
+
+    struct Init;
+    inline RenderPassDescriptorExpandResolveRect(Init&& init);
+    inline operator const WGPURenderPassDescriptorExpandResolveRect&() const noexcept;
+
+    static constexpr size_t kFirstMemberAlignment = detail::ConstexprMax(alignof(ChainedStruct), alignof(uint32_t ));
+    alignas(kFirstMemberAlignment) uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
 
 
 };
@@ -3754,7 +3819,7 @@ struct DepthStencilState {
 
     ChainedStruct const * nextInChain = nullptr;
     TextureFormat format;
-    Bool depthWriteEnabled = false;
+    OptionalBool depthWriteEnabled = OptionalBool::Undefined;
     CompareFunction depthCompare = CompareFunction::Undefined;
     StencilFaceState stencilFront = {};
     StencilFaceState stencilBack = {};
@@ -4988,26 +5053,6 @@ static_assert(offsetof(DawnWireWGSLControl, enableUnsafe) == offsetof(WGPUDawnWi
 static_assert(offsetof(DawnWireWGSLControl, enableTesting) == offsetof(WGPUDawnWireWGSLControl, enableTesting),
         "offsetof mismatch for DawnWireWGSLControl::enableTesting");
 
-// DepthStencilStateDepthWriteDefinedDawn implementation
-DepthStencilStateDepthWriteDefinedDawn::DepthStencilStateDepthWriteDefinedDawn()
-  : ChainedStruct { nullptr, SType::DepthStencilStateDepthWriteDefinedDawn } {}
-struct DepthStencilStateDepthWriteDefinedDawn::Init {
-    ChainedStruct * const nextInChain;
-    Bool depthWriteDefined;
-};
-DepthStencilStateDepthWriteDefinedDawn::DepthStencilStateDepthWriteDefinedDawn(DepthStencilStateDepthWriteDefinedDawn::Init&& init)
-  : ChainedStruct { init.nextInChain, SType::DepthStencilStateDepthWriteDefinedDawn }, 
-    depthWriteDefined(std::move(init.depthWriteDefined)){}
-
-DepthStencilStateDepthWriteDefinedDawn::operator const WGPUDepthStencilStateDepthWriteDefinedDawn&() const noexcept {
-    return *reinterpret_cast<const WGPUDepthStencilStateDepthWriteDefinedDawn*>(this);
-}
-
-static_assert(sizeof(DepthStencilStateDepthWriteDefinedDawn) == sizeof(WGPUDepthStencilStateDepthWriteDefinedDawn), "sizeof mismatch for DepthStencilStateDepthWriteDefinedDawn");
-static_assert(alignof(DepthStencilStateDepthWriteDefinedDawn) == alignof(WGPUDepthStencilStateDepthWriteDefinedDawn), "alignof mismatch for DepthStencilStateDepthWriteDefinedDawn");
-static_assert(offsetof(DepthStencilStateDepthWriteDefinedDawn, depthWriteDefined) == offsetof(WGPUDepthStencilStateDepthWriteDefinedDawn, depthWriteDefined),
-        "offsetof mismatch for DepthStencilStateDepthWriteDefinedDawn::depthWriteDefined");
-
 // DeviceLostCallbackInfo implementation
 
 DeviceLostCallbackInfo::operator const WGPUDeviceLostCallbackInfo&() const noexcept {
@@ -5486,6 +5531,38 @@ static_assert(offsetof(RenderPassDepthStencilAttachment, stencilClearValue) == o
         "offsetof mismatch for RenderPassDepthStencilAttachment::stencilClearValue");
 static_assert(offsetof(RenderPassDepthStencilAttachment, stencilReadOnly) == offsetof(WGPURenderPassDepthStencilAttachment, stencilReadOnly),
         "offsetof mismatch for RenderPassDepthStencilAttachment::stencilReadOnly");
+
+// RenderPassDescriptorExpandResolveRect implementation
+RenderPassDescriptorExpandResolveRect::RenderPassDescriptorExpandResolveRect()
+  : ChainedStruct { nullptr, SType::RenderPassDescriptorExpandResolveRect } {}
+struct RenderPassDescriptorExpandResolveRect::Init {
+    ChainedStruct * const nextInChain;
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+};
+RenderPassDescriptorExpandResolveRect::RenderPassDescriptorExpandResolveRect(RenderPassDescriptorExpandResolveRect::Init&& init)
+  : ChainedStruct { init.nextInChain, SType::RenderPassDescriptorExpandResolveRect }, 
+    x(std::move(init.x)), 
+    y(std::move(init.y)), 
+    width(std::move(init.width)), 
+    height(std::move(init.height)){}
+
+RenderPassDescriptorExpandResolveRect::operator const WGPURenderPassDescriptorExpandResolveRect&() const noexcept {
+    return *reinterpret_cast<const WGPURenderPassDescriptorExpandResolveRect*>(this);
+}
+
+static_assert(sizeof(RenderPassDescriptorExpandResolveRect) == sizeof(WGPURenderPassDescriptorExpandResolveRect), "sizeof mismatch for RenderPassDescriptorExpandResolveRect");
+static_assert(alignof(RenderPassDescriptorExpandResolveRect) == alignof(WGPURenderPassDescriptorExpandResolveRect), "alignof mismatch for RenderPassDescriptorExpandResolveRect");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, x) == offsetof(WGPURenderPassDescriptorExpandResolveRect, x),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::x");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, y) == offsetof(WGPURenderPassDescriptorExpandResolveRect, y),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::y");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, width) == offsetof(WGPURenderPassDescriptorExpandResolveRect, width),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::width");
+static_assert(offsetof(RenderPassDescriptorExpandResolveRect, height) == offsetof(WGPURenderPassDescriptorExpandResolveRect, height),
+        "offsetof mismatch for RenderPassDescriptorExpandResolveRect::height");
 
 // RenderPassDescriptorMaxDrawCount implementation
 RenderPassDescriptorMaxDrawCount::RenderPassDescriptorMaxDrawCount()
@@ -9080,6 +9157,12 @@ void RenderPassEncoder::InsertDebugMarker(char const * markerLabel) const {
 void RenderPassEncoder::InsertDebugMarker(StringView markerLabel) const {
     wgpuRenderPassEncoderInsertDebugMarker2(Get(), *reinterpret_cast<WGPUStringView const*>(&markerLabel));
 }
+void RenderPassEncoder::MultiDrawIndexedIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset) const {
+    wgpuRenderPassEncoderMultiDrawIndexedIndirect(Get(), indirectBuffer.Get(), indirectOffset, maxDrawCount, drawCountBuffer.Get(), drawCountBufferOffset);
+}
+void RenderPassEncoder::MultiDrawIndirect(Buffer const& indirectBuffer, uint64_t indirectOffset, uint32_t maxDrawCount, Buffer const& drawCountBuffer, uint64_t drawCountBufferOffset) const {
+    wgpuRenderPassEncoderMultiDrawIndirect(Get(), indirectBuffer.Get(), indirectOffset, maxDrawCount, drawCountBuffer.Get(), drawCountBufferOffset);
+}
 void RenderPassEncoder::PixelLocalStorageBarrier() const {
     wgpuRenderPassEncoderPixelLocalStorageBarrier(Get());
 }
@@ -9604,6 +9687,13 @@ struct hash<wgpu::Bool> {
   public:
     size_t operator()(const wgpu::Bool &v) const {
         return hash<bool>()(v);
+    }
+};
+template <>
+struct hash<wgpu::OptionalBool> {
+  public:
+    size_t operator()(const wgpu::OptionalBool &v) const {
+        return hash<WGPUOptionalBool>()(v.mValue);
     }
 };
 }  // namespace std

@@ -240,6 +240,8 @@ typedef struct DawnProcTable {
     WGPUProcRenderPassEncoderExecuteBundles renderPassEncoderExecuteBundles;
     WGPUProcRenderPassEncoderInsertDebugMarker renderPassEncoderInsertDebugMarker;
     WGPUProcRenderPassEncoderInsertDebugMarker2 renderPassEncoderInsertDebugMarker2;
+    WGPUProcRenderPassEncoderMultiDrawIndexedIndirect renderPassEncoderMultiDrawIndexedIndirect;
+    WGPUProcRenderPassEncoderMultiDrawIndirect renderPassEncoderMultiDrawIndirect;
     WGPUProcRenderPassEncoderPixelLocalStorageBarrier renderPassEncoderPixelLocalStorageBarrier;
     WGPUProcRenderPassEncoderPopDebugGroup renderPassEncoderPopDebugGroup;
     WGPUProcRenderPassEncoderPushDebugGroup renderPassEncoderPushDebugGroup;

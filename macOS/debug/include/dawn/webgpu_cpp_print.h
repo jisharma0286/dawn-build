@@ -778,6 +778,15 @@ namespace wgpu {
       case FeatureName::DawnLoadResolveTexture:
         o << "FeatureName::DawnLoadResolveTexture";
         break;
+      case FeatureName::DawnPartialLoadResolveTexture:
+        o << "FeatureName::DawnPartialLoadResolveTexture";
+        break;
+      case FeatureName::MultiDrawIndirect:
+        o << "FeatureName::MultiDrawIndirect";
+        break;
+      case FeatureName::ClipDistances:
+        o << "FeatureName::ClipDistances";
+        break;
           default:
             o << "FeatureName::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<FeatureName>::type>(value);
       }
@@ -1086,6 +1095,9 @@ namespace wgpu {
       case SType::RenderPassDescriptorMaxDrawCount:
         o << "SType::RenderPassDescriptorMaxDrawCount";
         break;
+      case SType::RenderPassDescriptorExpandResolveRect:
+        o << "SType::RenderPassDescriptorExpandResolveRect";
+        break;
       case SType::TextureBindingViewDimensionDescriptor:
         o << "SType::TextureBindingViewDimensionDescriptor";
         break;
@@ -1118,9 +1130,6 @@ namespace wgpu {
         break;
       case SType::SurfaceDescriptorFromWindowsSwapChainPanel:
         o << "SType::SurfaceDescriptorFromWindowsSwapChainPanel";
-        break;
-      case SType::DepthStencilStateDepthWriteDefinedDawn:
-        o << "SType::DepthStencilStateDepthWriteDefinedDawn";
         break;
       case SType::DawnTextureInternalUsageDescriptor:
         o << "SType::DawnTextureInternalUsageDescriptor";

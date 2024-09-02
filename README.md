@@ -39,7 +39,7 @@ $ cmake --build out/Debug --config debug
 Once you have built the Dawn library, install it with `cmake`
 
 ```shell
-$ cmake --install out/Debug --prefix install/Release --config Debug
+$ cmake --install out/Debug --prefix install/Debug --config Debug
 ```
 
 This installs Dawn from the `out/Debug` build tree into `install/Debug`.

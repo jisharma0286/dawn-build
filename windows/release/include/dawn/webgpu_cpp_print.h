@@ -28,7 +28,7 @@
 #ifndef WEBGPU_CPP_PRINT_H_
 #define WEBGPU_CPP_PRINT_H_
 
-#include "dawn/webgpu_cpp.h"
+#include "webgpu/webgpu_cpp.h"
 
 #include <iomanip>
 #include <ios>
@@ -255,6 +255,9 @@ namespace wgpu {
   template <typename CharT, typename Traits>
   std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, BufferBindingType value) {
       switch (value) {
+      case BufferBindingType::BindingNotUsed:
+        o << "BufferBindingType::BindingNotUsed";
+        break;
       case BufferBindingType::Undefined:
         o << "BufferBindingType::Undefined";
         break;
@@ -269,44 +272,6 @@ namespace wgpu {
         break;
           default:
             o << "BufferBindingType::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<BufferBindingType>::type>(value);
-      }
-      return o;
-  }
-  template <typename CharT, typename Traits>
-  std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, BufferMapAsyncStatus value) {
-      switch (value) {
-      case BufferMapAsyncStatus::Success:
-        o << "BufferMapAsyncStatus::Success";
-        break;
-      case BufferMapAsyncStatus::InstanceDropped:
-        o << "BufferMapAsyncStatus::InstanceDropped";
-        break;
-      case BufferMapAsyncStatus::ValidationError:
-        o << "BufferMapAsyncStatus::ValidationError";
-        break;
-      case BufferMapAsyncStatus::Unknown:
-        o << "BufferMapAsyncStatus::Unknown";
-        break;
-      case BufferMapAsyncStatus::DeviceLost:
-        o << "BufferMapAsyncStatus::DeviceLost";
-        break;
-      case BufferMapAsyncStatus::DestroyedBeforeCallback:
-        o << "BufferMapAsyncStatus::DestroyedBeforeCallback";
-        break;
-      case BufferMapAsyncStatus::UnmappedBeforeCallback:
-        o << "BufferMapAsyncStatus::UnmappedBeforeCallback";
-        break;
-      case BufferMapAsyncStatus::MappingAlreadyPending:
-        o << "BufferMapAsyncStatus::MappingAlreadyPending";
-        break;
-      case BufferMapAsyncStatus::OffsetOutOfRange:
-        o << "BufferMapAsyncStatus::OffsetOutOfRange";
-        break;
-      case BufferMapAsyncStatus::SizeOutOfRange:
-        o << "BufferMapAsyncStatus::SizeOutOfRange";
-        break;
-          default:
-            o << "BufferMapAsyncStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<BufferMapAsyncStatus>::type>(value);
       }
       return o;
   }
@@ -575,6 +540,23 @@ namespace wgpu {
       return o;
   }
   template <typename CharT, typename Traits>
+  std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, FeatureLevel value) {
+      switch (value) {
+      case FeatureLevel::Undefined:
+        o << "FeatureLevel::Undefined";
+        break;
+      case FeatureLevel::Compatibility:
+        o << "FeatureLevel::Compatibility";
+        break;
+      case FeatureLevel::Core:
+        o << "FeatureLevel::Core";
+        break;
+          default:
+            o << "FeatureLevel::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<FeatureLevel>::type>(value);
+      }
+      return o;
+  }
+  template <typename CharT, typename Traits>
   std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, FeatureName value) {
       switch (value) {
       case FeatureName::DepthClipControl:
@@ -610,6 +592,9 @@ namespace wgpu {
       case FeatureName::Float32Filterable:
         o << "FeatureName::Float32Filterable";
         break;
+      case FeatureName::Float32Blendable:
+        o << "FeatureName::Float32Blendable";
+        break;
       case FeatureName::Subgroups:
         o << "FeatureName::Subgroups";
         break;
@@ -631,8 +616,8 @@ namespace wgpu {
       case FeatureName::ImplicitDeviceSynchronization:
         o << "FeatureName::ImplicitDeviceSynchronization";
         break;
-      case FeatureName::SurfaceCapabilities:
-        o << "FeatureName::SurfaceCapabilities";
+      case FeatureName::ChromiumExperimentalImmediateData:
+        o << "FeatureName::ChromiumExperimentalImmediateData";
         break;
       case FeatureName::TransientAttachments:
         o << "FeatureName::TransientAttachments";
@@ -648,12 +633,6 @@ namespace wgpu {
         break;
       case FeatureName::ANGLETextureSharing:
         o << "FeatureName::ANGLETextureSharing";
-        break;
-      case FeatureName::ChromiumExperimentalSubgroups:
-        o << "FeatureName::ChromiumExperimentalSubgroups";
-        break;
-      case FeatureName::ChromiumExperimentalSubgroupUniformControlFlow:
-        o << "FeatureName::ChromiumExperimentalSubgroupUniformControlFlow";
         break;
       case FeatureName::PixelLocalStorageCoherent:
         o << "FeatureName::PixelLocalStorageCoherent";
@@ -700,11 +679,11 @@ namespace wgpu {
       case FeatureName::R8UnormStorage:
         o << "FeatureName::R8UnormStorage";
         break;
-      case FeatureName::FormatCapabilities:
-        o << "FeatureName::FormatCapabilities";
+      case FeatureName::DawnFormatCapabilities:
+        o << "FeatureName::DawnFormatCapabilities";
         break;
-      case FeatureName::DrmFormatCapabilities:
-        o << "FeatureName::DrmFormatCapabilities";
+      case FeatureName::DawnDrmFormatCapabilities:
+        o << "FeatureName::DawnDrmFormatCapabilities";
         break;
       case FeatureName::Norm16TextureFormats:
         o << "FeatureName::Norm16TextureFormats";
@@ -751,8 +730,8 @@ namespace wgpu {
       case FeatureName::SharedFenceVkSemaphoreOpaqueFD:
         o << "FeatureName::SharedFenceVkSemaphoreOpaqueFD";
         break;
-      case FeatureName::SharedFenceVkSemaphoreSyncFD:
-        o << "FeatureName::SharedFenceVkSemaphoreSyncFD";
+      case FeatureName::SharedFenceSyncFD:
+        o << "FeatureName::SharedFenceSyncFD";
         break;
       case FeatureName::SharedFenceVkSemaphoreZirconHandle:
         o << "FeatureName::SharedFenceVkSemaphoreZirconHandle";
@@ -783,6 +762,15 @@ namespace wgpu {
         break;
       case FeatureName::MultiDrawIndirect:
         o << "FeatureName::MultiDrawIndirect";
+        break;
+      case FeatureName::ClipDistances:
+        o << "FeatureName::ClipDistances";
+        break;
+      case FeatureName::DawnTexelCopyBufferRowAlignment:
+        o << "FeatureName::DawnTexelCopyBufferRowAlignment";
+        break;
+      case FeatureName::FlexibleTextureViews:
+        o << "FeatureName::FlexibleTextureViews";
         break;
           default:
             o << "FeatureName::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<FeatureName>::type>(value);
@@ -846,11 +834,11 @@ namespace wgpu {
       case LoadOp::Undefined:
         o << "LoadOp::Undefined";
         break;
-      case LoadOp::Clear:
-        o << "LoadOp::Clear";
-        break;
       case LoadOp::Load:
         o << "LoadOp::Load";
+        break;
+      case LoadOp::Clear:
+        o << "LoadOp::Clear";
         break;
       case LoadOp::ExpandResolveTexture:
         o << "LoadOp::ExpandResolveTexture";
@@ -1026,9 +1014,6 @@ namespace wgpu {
       case QueueWorkDoneStatus::Unknown:
         o << "QueueWorkDoneStatus::Unknown";
         break;
-      case QueueWorkDoneStatus::DeviceLost:
-        o << "QueueWorkDoneStatus::DeviceLost";
-        break;
           default:
             o << "QueueWorkDoneStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<QueueWorkDoneStatus>::type>(value);
       }
@@ -1080,41 +1065,38 @@ namespace wgpu {
   template <typename CharT, typename Traits>
   std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, SType value) {
       switch (value) {
-      case SType::ShaderModuleSPIRVDescriptor:
-        o << "SType::ShaderModuleSPIRVDescriptor";
+      case SType::ShaderSourceSPIRV:
+        o << "SType::ShaderSourceSPIRV";
         break;
-      case SType::ShaderModuleWGSLDescriptor:
-        o << "SType::ShaderModuleWGSLDescriptor";
+      case SType::ShaderSourceWGSL:
+        o << "SType::ShaderSourceWGSL";
         break;
-      case SType::PrimitiveDepthClipControl:
-        o << "SType::PrimitiveDepthClipControl";
+      case SType::RenderPassMaxDrawCount:
+        o << "SType::RenderPassMaxDrawCount";
         break;
-      case SType::RenderPassDescriptorMaxDrawCount:
-        o << "SType::RenderPassDescriptorMaxDrawCount";
+      case SType::SurfaceSourceMetalLayer:
+        o << "SType::SurfaceSourceMetalLayer";
         break;
-      case SType::RenderPassDescriptorExpandResolveRect:
-        o << "SType::RenderPassDescriptorExpandResolveRect";
+      case SType::SurfaceSourceWindowsHWND:
+        o << "SType::SurfaceSourceWindowsHWND";
+        break;
+      case SType::SurfaceSourceXlibWindow:
+        o << "SType::SurfaceSourceXlibWindow";
+        break;
+      case SType::SurfaceSourceWaylandSurface:
+        o << "SType::SurfaceSourceWaylandSurface";
+        break;
+      case SType::SurfaceSourceAndroidNativeWindow:
+        o << "SType::SurfaceSourceAndroidNativeWindow";
+        break;
+      case SType::SurfaceSourceXCBWindow:
+        o << "SType::SurfaceSourceXCBWindow";
+        break;
+      case SType::AdapterPropertiesSubgroups:
+        o << "SType::AdapterPropertiesSubgroups";
         break;
       case SType::TextureBindingViewDimensionDescriptor:
         o << "SType::TextureBindingViewDimensionDescriptor";
-        break;
-      case SType::SurfaceDescriptorFromMetalLayer:
-        o << "SType::SurfaceDescriptorFromMetalLayer";
-        break;
-      case SType::SurfaceDescriptorFromWindowsHWND:
-        o << "SType::SurfaceDescriptorFromWindowsHWND";
-        break;
-      case SType::SurfaceDescriptorFromXlibWindow:
-        o << "SType::SurfaceDescriptorFromXlibWindow";
-        break;
-      case SType::SurfaceDescriptorFromWaylandSurface:
-        o << "SType::SurfaceDescriptorFromWaylandSurface";
-        break;
-      case SType::SurfaceDescriptorFromAndroidNativeWindow:
-        o << "SType::SurfaceDescriptorFromAndroidNativeWindow";
-        break;
-      case SType::SurfaceDescriptorFromXcbWindow:
-        o << "SType::SurfaceDescriptorFromXcbWindow";
         break;
       case SType::SurfaceDescriptorFromWindowsCoreWindow:
         o << "SType::SurfaceDescriptorFromWindowsCoreWindow";
@@ -1185,23 +1167,23 @@ namespace wgpu {
       case SType::AdapterPropertiesVk:
         o << "SType::AdapterPropertiesVk";
         break;
-      case SType::DawnComputePipelineFullSubgroups:
-        o << "SType::DawnComputePipelineFullSubgroups";
-        break;
       case SType::DawnWireWGSLControl:
         o << "SType::DawnWireWGSLControl";
         break;
       case SType::DawnWGSLBlocklist:
         o << "SType::DawnWGSLBlocklist";
         break;
-      case SType::DrmFormatCapabilities:
-        o << "SType::DrmFormatCapabilities";
+      case SType::DawnDrmFormatCapabilities:
+        o << "SType::DawnDrmFormatCapabilities";
         break;
       case SType::ShaderModuleCompilationOptions:
         o << "SType::ShaderModuleCompilationOptions";
         break;
       case SType::ColorTargetStateExpandResolveTextureDawn:
         o << "SType::ColorTargetStateExpandResolveTextureDawn";
+        break;
+      case SType::RenderPassDescriptorExpandResolveRect:
+        o << "SType::RenderPassDescriptorExpandResolveRect";
         break;
       case SType::SharedTextureMemoryVkDedicatedAllocationDescriptor:
         o << "SType::SharedTextureMemoryVkDedicatedAllocationDescriptor";
@@ -1251,11 +1233,11 @@ namespace wgpu {
       case SType::SharedFenceVkSemaphoreOpaqueFDExportInfo:
         o << "SType::SharedFenceVkSemaphoreOpaqueFDExportInfo";
         break;
-      case SType::SharedFenceVkSemaphoreSyncFDDescriptor:
-        o << "SType::SharedFenceVkSemaphoreSyncFDDescriptor";
+      case SType::SharedFenceSyncFDDescriptor:
+        o << "SType::SharedFenceSyncFDDescriptor";
         break;
-      case SType::SharedFenceVkSemaphoreSyncFDExportInfo:
-        o << "SType::SharedFenceVkSemaphoreSyncFDExportInfo";
+      case SType::SharedFenceSyncFDExportInfo:
+        o << "SType::SharedFenceSyncFDExportInfo";
         break;
       case SType::SharedFenceVkSemaphoreZirconHandleDescriptor:
         o << "SType::SharedFenceVkSemaphoreZirconHandleDescriptor";
@@ -1290,6 +1272,12 @@ namespace wgpu {
       case SType::AHardwareBufferProperties:
         o << "SType::AHardwareBufferProperties";
         break;
+      case SType::DawnExperimentalImmediateDataLimits:
+        o << "SType::DawnExperimentalImmediateDataLimits";
+        break;
+      case SType::DawnTexelCopyBufferRowAlignmentLimits:
+        o << "SType::DawnTexelCopyBufferRowAlignmentLimits";
+        break;
           default:
             o << "SType::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<SType>::type>(value);
       }
@@ -1298,6 +1286,9 @@ namespace wgpu {
   template <typename CharT, typename Traits>
   std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, SamplerBindingType value) {
       switch (value) {
+      case SamplerBindingType::BindingNotUsed:
+        o << "SamplerBindingType::BindingNotUsed";
+        break;
       case SamplerBindingType::Undefined:
         o << "SamplerBindingType::Undefined";
         break;
@@ -1321,8 +1312,8 @@ namespace wgpu {
       case SharedFenceType::VkSemaphoreOpaqueFD:
         o << "SharedFenceType::VkSemaphoreOpaqueFD";
         break;
-      case SharedFenceType::VkSemaphoreSyncFD:
-        o << "SharedFenceType::VkSemaphoreSyncFD";
+      case SharedFenceType::SyncFD:
+        o << "SharedFenceType::SyncFD";
         break;
       case SharedFenceType::VkSemaphoreZirconHandle:
         o << "SharedFenceType::VkSemaphoreZirconHandle";
@@ -1390,6 +1381,9 @@ namespace wgpu {
   template <typename CharT, typename Traits>
   std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, StorageTextureAccess value) {
       switch (value) {
+      case StorageTextureAccess::BindingNotUsed:
+        o << "StorageTextureAccess::BindingNotUsed";
+        break;
       case StorageTextureAccess::Undefined:
         o << "StorageTextureAccess::Undefined";
         break;
@@ -1843,6 +1837,9 @@ namespace wgpu {
   template <typename CharT, typename Traits>
   std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, TextureSampleType value) {
       switch (value) {
+      case TextureSampleType::BindingNotUsed:
+        o << "TextureSampleType::BindingNotUsed";
+        break;
       case TextureSampleType::Undefined:
         o << "TextureSampleType::Undefined";
         break;
@@ -1898,11 +1895,17 @@ namespace wgpu {
   template <typename CharT, typename Traits>
   std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, VertexFormat value) {
       switch (value) {
+      case VertexFormat::Uint8:
+        o << "VertexFormat::Uint8";
+        break;
       case VertexFormat::Uint8x2:
         o << "VertexFormat::Uint8x2";
         break;
       case VertexFormat::Uint8x4:
         o << "VertexFormat::Uint8x4";
+        break;
+      case VertexFormat::Sint8:
+        o << "VertexFormat::Sint8";
         break;
       case VertexFormat::Sint8x2:
         o << "VertexFormat::Sint8x2";
@@ -1910,11 +1913,17 @@ namespace wgpu {
       case VertexFormat::Sint8x4:
         o << "VertexFormat::Sint8x4";
         break;
+      case VertexFormat::Unorm8:
+        o << "VertexFormat::Unorm8";
+        break;
       case VertexFormat::Unorm8x2:
         o << "VertexFormat::Unorm8x2";
         break;
       case VertexFormat::Unorm8x4:
         o << "VertexFormat::Unorm8x4";
+        break;
+      case VertexFormat::Snorm8:
+        o << "VertexFormat::Snorm8";
         break;
       case VertexFormat::Snorm8x2:
         o << "VertexFormat::Snorm8x2";
@@ -1922,11 +1931,17 @@ namespace wgpu {
       case VertexFormat::Snorm8x4:
         o << "VertexFormat::Snorm8x4";
         break;
+      case VertexFormat::Uint16:
+        o << "VertexFormat::Uint16";
+        break;
       case VertexFormat::Uint16x2:
         o << "VertexFormat::Uint16x2";
         break;
       case VertexFormat::Uint16x4:
         o << "VertexFormat::Uint16x4";
+        break;
+      case VertexFormat::Sint16:
+        o << "VertexFormat::Sint16";
         break;
       case VertexFormat::Sint16x2:
         o << "VertexFormat::Sint16x2";
@@ -1934,17 +1949,26 @@ namespace wgpu {
       case VertexFormat::Sint16x4:
         o << "VertexFormat::Sint16x4";
         break;
+      case VertexFormat::Unorm16:
+        o << "VertexFormat::Unorm16";
+        break;
       case VertexFormat::Unorm16x2:
         o << "VertexFormat::Unorm16x2";
         break;
       case VertexFormat::Unorm16x4:
         o << "VertexFormat::Unorm16x4";
         break;
+      case VertexFormat::Snorm16:
+        o << "VertexFormat::Snorm16";
+        break;
       case VertexFormat::Snorm16x2:
         o << "VertexFormat::Snorm16x2";
         break;
       case VertexFormat::Snorm16x4:
         o << "VertexFormat::Snorm16x4";
+        break;
+      case VertexFormat::Float16:
+        o << "VertexFormat::Float16";
         break;
       case VertexFormat::Float16x2:
         o << "VertexFormat::Float16x2";
@@ -1991,6 +2015,9 @@ namespace wgpu {
       case VertexFormat::Unorm10_10_10_2:
         o << "VertexFormat::Unorm10_10_10_2";
         break;
+      case VertexFormat::Unorm8x4BGRA:
+        o << "VertexFormat::Unorm8x4BGRA";
+        break;
           default:
             o << "VertexFormat::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<VertexFormat>::type>(value);
       }
@@ -2001,9 +2028,6 @@ namespace wgpu {
       switch (value) {
       case VertexStepMode::Undefined:
         o << "VertexStepMode::Undefined";
-        break;
-      case VertexStepMode::VertexBufferNotUsed:
-        o << "VertexStepMode::VertexBufferNotUsed";
         break;
       case VertexStepMode::Vertex:
         o << "VertexStepMode::Vertex";
@@ -2465,6 +2489,12 @@ namespace wgpu {
       o << ")";
     }
     return o;
+  }
+
+  template <typename CharT, typename Traits>
+  std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, StringView value) {
+      o << std::string_view(value);
+      return o;
   }
 
 }  // namespace wgpu

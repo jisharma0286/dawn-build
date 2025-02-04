@@ -56,7 +56,10 @@ if(_IMPORT_PREFIX STREQUAL "/")
 endif()
 
 # Create target dawn::webgpu_dawn
-add_library(dawn::webgpu_dawn SHARED)
+add_library(dawn::webgpu_dawn INTERFACE IMPORTED)
+
+set_target_properties(dawn::webgpu_dawn PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include")
 
 # Load information for each installed configuration.
 file(GLOB _cmake_config_files "${CMAKE_CURRENT_LIST_DIR}/DawnTargets-*.cmake")

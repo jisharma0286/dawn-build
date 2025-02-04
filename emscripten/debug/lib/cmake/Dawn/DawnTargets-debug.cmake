@@ -21,7 +21,7 @@ set(TARGET_LINK_OPTIONS
 set_property(TARGET dawn::webgpu_dawn APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(dawn::webgpu_dawn PROPERTIES
   INTERFACE_LINK_OPTIONS ${TARGET_LINK_OPTIONS}  
-  INTERFACE_SOURCES "${_IMPORT_PREFIX}/cpp/webgpu.cpp" 
+  INTERFACE_SOURCES "${_IMPORT_PREFIX}/src/webgpu.cpp" 
 )
 
 list(APPEND _cmake_import_check_targets dawn::webgpu_dawn )

@@ -13,7 +13,6 @@ set(TARGET_LINK_OPTIONS
   "--js-library=${_IMPORT_PREFIX}/lib/js/library_webgpu.js"
   "--closure-args=--externs=${_IMPORT_PREFIX}/lib/js/webgpu-externs.js"
   "-sEXIT_RUNTIME=0"
-  "-sASSERTIONS=1"
   "-Wno-limited-postlink-optimizations"
   "--closure=1"
 )
@@ -22,7 +21,7 @@ set(TARGET_LINK_OPTIONS
 set_property(TARGET dawn::webgpu_dawn APPEND PROPERTY IMPORTED_CONFIGURATIONS RELASE)
 set_target_properties(dawn::webgpu_dawn PROPERTIES
   INTERFACE_LINK_OPTIONS ${TARGET_LINK_OPTIONS} 
-  INTERFACE_SOURCES "${_IMPORT_PREFIX}/cpp/webgpu.cpp" 
+  INTERFACE_SOURCES "${_IMPORT_PREFIX}/src/webgpu.cpp" 
 )
 
 list(APPEND _cmake_import_check_targets dawn::webgpu_dawn )

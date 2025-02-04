@@ -38,37 +38,37 @@
 namespace wgpu {
 
   template <typename CharT, typename Traits>
-  std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, WGSLFeatureName value) {
+  std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& o, WGSLLanguageFeatureName value) {
       switch (value) {
-      case WGSLFeatureName::ReadonlyAndReadwriteStorageTextures:
-        o << "WGSLFeatureName::ReadonlyAndReadwriteStorageTextures";
+      case WGSLLanguageFeatureName::ReadonlyAndReadwriteStorageTextures:
+        o << "WGSLLanguageFeatureName::ReadonlyAndReadwriteStorageTextures";
         break;
-      case WGSLFeatureName::Packed4x8IntegerDotProduct:
-        o << "WGSLFeatureName::Packed4x8IntegerDotProduct";
+      case WGSLLanguageFeatureName::Packed4x8IntegerDotProduct:
+        o << "WGSLLanguageFeatureName::Packed4x8IntegerDotProduct";
         break;
-      case WGSLFeatureName::UnrestrictedPointerParameters:
-        o << "WGSLFeatureName::UnrestrictedPointerParameters";
+      case WGSLLanguageFeatureName::UnrestrictedPointerParameters:
+        o << "WGSLLanguageFeatureName::UnrestrictedPointerParameters";
         break;
-      case WGSLFeatureName::PointerCompositeAccess:
-        o << "WGSLFeatureName::PointerCompositeAccess";
+      case WGSLLanguageFeatureName::PointerCompositeAccess:
+        o << "WGSLLanguageFeatureName::PointerCompositeAccess";
         break;
-      case WGSLFeatureName::ChromiumTestingUnimplemented:
-        o << "WGSLFeatureName::ChromiumTestingUnimplemented";
+      case WGSLLanguageFeatureName::ChromiumTestingUnimplemented:
+        o << "WGSLLanguageFeatureName::ChromiumTestingUnimplemented";
         break;
-      case WGSLFeatureName::ChromiumTestingUnsafeExperimental:
-        o << "WGSLFeatureName::ChromiumTestingUnsafeExperimental";
+      case WGSLLanguageFeatureName::ChromiumTestingUnsafeExperimental:
+        o << "WGSLLanguageFeatureName::ChromiumTestingUnsafeExperimental";
         break;
-      case WGSLFeatureName::ChromiumTestingExperimental:
-        o << "WGSLFeatureName::ChromiumTestingExperimental";
+      case WGSLLanguageFeatureName::ChromiumTestingExperimental:
+        o << "WGSLLanguageFeatureName::ChromiumTestingExperimental";
         break;
-      case WGSLFeatureName::ChromiumTestingShippedWithKillswitch:
-        o << "WGSLFeatureName::ChromiumTestingShippedWithKillswitch";
+      case WGSLLanguageFeatureName::ChromiumTestingShippedWithKillswitch:
+        o << "WGSLLanguageFeatureName::ChromiumTestingShippedWithKillswitch";
         break;
-      case WGSLFeatureName::ChromiumTestingShipped:
-        o << "WGSLFeatureName::ChromiumTestingShipped";
+      case WGSLLanguageFeatureName::ChromiumTestingShipped:
+        o << "WGSLLanguageFeatureName::ChromiumTestingShipped";
         break;
           default:
-            o << "WGSLFeatureName::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<WGSLFeatureName>::type>(value);
+            o << "WGSLLanguageFeatureName::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<WGSLLanguageFeatureName>::type>(value);
       }
       return o;
   }
@@ -353,15 +353,6 @@ namespace wgpu {
       case CompilationInfoRequestStatus::InstanceDropped:
         o << "CompilationInfoRequestStatus::InstanceDropped";
         break;
-      case CompilationInfoRequestStatus::Error:
-        o << "CompilationInfoRequestStatus::Error";
-        break;
-      case CompilationInfoRequestStatus::DeviceLost:
-        o << "CompilationInfoRequestStatus::DeviceLost";
-        break;
-      case CompilationInfoRequestStatus::Unknown:
-        o << "CompilationInfoRequestStatus::Unknown";
-        break;
           default:
             o << "CompilationInfoRequestStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<CompilationInfoRequestStatus>::type>(value);
       }
@@ -421,15 +412,6 @@ namespace wgpu {
         break;
       case CreatePipelineAsyncStatus::InternalError:
         o << "CreatePipelineAsyncStatus::InternalError";
-        break;
-      case CreatePipelineAsyncStatus::DeviceLost:
-        o << "CreatePipelineAsyncStatus::DeviceLost";
-        break;
-      case CreatePipelineAsyncStatus::DeviceDestroyed:
-        o << "CreatePipelineAsyncStatus::DeviceDestroyed";
-        break;
-      case CreatePipelineAsyncStatus::Unknown:
-        o << "CreatePipelineAsyncStatus::Unknown";
         break;
           default:
             o << "CreatePipelineAsyncStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<CreatePipelineAsyncStatus>::type>(value);
@@ -510,9 +492,6 @@ namespace wgpu {
         break;
       case ErrorType::Unknown:
         o << "ErrorType::Unknown";
-        break;
-      case ErrorType::DeviceLost:
-        o << "ErrorType::DeviceLost";
         break;
           default:
             o << "ErrorType::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<ErrorType>::type>(value);
@@ -883,9 +862,6 @@ namespace wgpu {
       case MapAsyncStatus::Aborted:
         o << "MapAsyncStatus::Aborted";
         break;
-      case MapAsyncStatus::Unknown:
-        o << "MapAsyncStatus::Unknown";
-        break;
           default:
             o << "MapAsyncStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<MapAsyncStatus>::type>(value);
       }
@@ -916,6 +892,9 @@ namespace wgpu {
         break;
       case PopErrorScopeStatus::InstanceDropped:
         o << "PopErrorScopeStatus::InstanceDropped";
+        break;
+      case PopErrorScopeStatus::EmptyStack:
+        o << "PopErrorScopeStatus::EmptyStack";
         break;
           default:
             o << "PopErrorScopeStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<PopErrorScopeStatus>::type>(value);
@@ -1011,9 +990,6 @@ namespace wgpu {
       case QueueWorkDoneStatus::Error:
         o << "QueueWorkDoneStatus::Error";
         break;
-      case QueueWorkDoneStatus::Unknown:
-        o << "QueueWorkDoneStatus::Unknown";
-        break;
           default:
             o << "QueueWorkDoneStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<QueueWorkDoneStatus>::type>(value);
       }
@@ -1034,9 +1010,6 @@ namespace wgpu {
       case RequestAdapterStatus::Error:
         o << "RequestAdapterStatus::Error";
         break;
-      case RequestAdapterStatus::Unknown:
-        o << "RequestAdapterStatus::Unknown";
-        break;
           default:
             o << "RequestAdapterStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<RequestAdapterStatus>::type>(value);
       }
@@ -1053,9 +1026,6 @@ namespace wgpu {
         break;
       case RequestDeviceStatus::Error:
         o << "RequestDeviceStatus::Error";
-        break;
-      case RequestDeviceStatus::Unknown:
-        o << "RequestDeviceStatus::Unknown";
         break;
           default:
             o << "RequestDeviceStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<RequestDeviceStatus>::type>(value);
@@ -2049,17 +2019,8 @@ namespace wgpu {
       case WaitStatus::TimedOut:
         o << "WaitStatus::TimedOut";
         break;
-      case WaitStatus::UnsupportedTimeout:
-        o << "WaitStatus::UnsupportedTimeout";
-        break;
-      case WaitStatus::UnsupportedCount:
-        o << "WaitStatus::UnsupportedCount";
-        break;
-      case WaitStatus::UnsupportedMixedSources:
-        o << "WaitStatus::UnsupportedMixedSources";
-        break;
-      case WaitStatus::Unknown:
-        o << "WaitStatus::Unknown";
+      case WaitStatus::Error:
+        o << "WaitStatus::Error";
         break;
           default:
             o << "WaitStatus::" << std::showbase << std::hex << std::setfill('0') << std::setw(4) << static_cast<typename std::underlying_type<WaitStatus>::type>(value);

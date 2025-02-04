@@ -10,10 +10,11 @@ typedef struct DawnProcTable {
     WGPUProcAdapterPropertiesMemoryHeapsFreeMembers adapterPropertiesMemoryHeapsFreeMembers;
     WGPUProcCreateInstance createInstance;
     WGPUProcDawnDrmFormatCapabilitiesFreeMembers dawnDrmFormatCapabilitiesFreeMembers;
-    WGPUProcGetInstanceFeatures getInstanceFeatures;
+    WGPUProcGetInstanceCapabilities getInstanceCapabilities;
     WGPUProcGetProcAddress getProcAddress;
     WGPUProcSharedBufferMemoryEndAccessStateFreeMembers sharedBufferMemoryEndAccessStateFreeMembers;
     WGPUProcSharedTextureMemoryEndAccessStateFreeMembers sharedTextureMemoryEndAccessStateFreeMembers;
+    WGPUProcSupportedWGSLLanguageFeaturesFreeMembers supportedWGSLLanguageFeaturesFreeMembers;
     WGPUProcSupportedFeaturesFreeMembers supportedFeaturesFreeMembers;
     WGPUProcSurfaceCapabilitiesFreeMembers surfaceCapabilitiesFreeMembers;
 
@@ -139,7 +140,7 @@ typedef struct DawnProcTable {
     WGPUProcExternalTextureRelease externalTextureRelease;
 
     WGPUProcInstanceCreateSurface instanceCreateSurface;
-    WGPUProcInstanceEnumerateWGSLLanguageFeatures instanceEnumerateWGSLLanguageFeatures;
+    WGPUProcInstanceGetWGSLLanguageFeatures instanceGetWGSLLanguageFeatures;
     WGPUProcInstanceHasWGSLLanguageFeature instanceHasWGSLLanguageFeature;
     WGPUProcInstanceProcessEvents instanceProcessEvents;
     WGPUProcInstanceRequestAdapter instanceRequestAdapter;
